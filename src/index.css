@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+body{ @apply bg-matte text-zinc-100; font-family:Inter,Arial,sans-serif }
+.input{ @apply w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-zinc-100 outline-none focus:border-gold }
+.btn-gold{ @apply rounded-xl bg-gold px-4 py-3 font-bold text-black hover:brightness-110 transition }
+.btn-dark{ @apply rounded-xl border border-white/10 bg-black/30 px-4 py-3 font-bold text-zinc-100 hover:bg-white/10 transition }
+.card{ @apply rounded-2xl border border-white/10 bg-gradient-to-b from-panel2 to-panel p-5 shadow-2xl }
+.badge{ @apply rounded-full px-3 py-1 text-xs font-bold }
+.success{ @apply bg-green-900/60 text-green-200 }.warning{ @apply bg-yellow-900/60 text-yellow-100 }.danger{ @apply bg-red-900/60 text-red-200 }.info{ @apply bg-sky-900/60 text-sky-200 }
+.client-portal{ @apply min-h-screen bg-matte p-6 }
+.client-shell{ @apply mx-auto max-w-5xl }
+.client-card{ @apply card }
+.client-grid{ @apply grid gap-4 md:grid-cols-2 }
+.full{ @apply md:col-span-2 }
+.price-preview{ @apply rounded-2xl border border-gold/30 bg-black/30 p-5 }
+.price-preview strong{ @apply text-3xl text-gold }
