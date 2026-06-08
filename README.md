@@ -1,41 +1,72 @@
-# Garagem SaaS React Supabase v2
+# Garagem SaaS React + Supabase
 
-Inclui correção do 404 no Vercel com `vercel.json`, portal terceiro com login por empresa/telefone, upload de arquivo, OS, PDF, financeiro, estoque, entregas, metas mensais, filtro de mês e dashboard com produção semanal.
+Projeto convertido para:
 
-## Depois de substituir os arquivos
+- React
+- TypeScript
+- Tailwind CSS
+- Vite
+- Supabase Auth
+- Supabase PostgreSQL
+- jsPDF
 
-Rode no VS Code:
+## Instalar
 
 ```bash
 npm install
-npm run build
-```
-
-Depois envie para o GitHub:
-
-```bash
-git add .
-git commit -m "v2 garagem saas completo"
-git push
 ```
 
 ## Supabase
 
-Rode novamente no SQL Editor:
+1. Crie projeto em https://supabase.com
+2. Vá em SQL Editor
+3. Rode:
 
 ```txt
 supabase/schema.sql
 ```
 
-Ele cria/atualiza tabelas, bucket `os-files`, políticas e permissões.
-
-## Vercel
-
-Variáveis:
+4. Vá em Authentication > Users
+5. Crie usuário:
 
 ```txt
-VITE_SUPABASE_URL=https://seuprojeto.supabase.co
-VITE_SUPABASE_ANON_KEY=sua anon key
+admin@garagem.com
+123456
 ```
 
-Não coloque `/rest/v1/`, pelo bem da humanidade.
+6. Copie `.env.example` para `.env`
+7. Preencha:
+
+```txt
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+```
+
+## Rodar
+
+```bash
+npm run dev
+```
+
+## Hospedar grátis
+
+- Vercel ou Cloudflare Pages para frontend
+- Supabase Free para banco
+
+## Rotas
+
+- `/login`
+- `/`
+- `/clientes`
+- `/leads`
+- `/ordens`
+- `/precos`
+- `/financeiro`
+- `/estoque`
+- `/entregas`
+- `/portal-terceiro`
+- `/orcamento-rapido`
+
+## Observação
+
+Esta é uma versão inicial funcional da conversão. Clientes, preços, orçamento público, leads, OS, dashboard e PDF já estão conectados. Financeiro, estoque e entregas têm tabelas prontas e telas base para expansão.
