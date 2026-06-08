@@ -13,51 +13,16 @@ export const today = () =>
 export const currentMonth = () =>
   new Date().toISOString().slice(0,7)
 
-export const roles = [
-  'Administrador',
-  'Financeiro',
-  'Produção',
-  'Vendas',
-  'Funcionário'
-]
+export const roles = ['Administrador','Financeiro','Produção','Vendas','Funcionário']
 
 export const finishings = [
-  'Sem acabamento',
-  'Ilhós',
-  'Bastão + corda',
-  'Dobrado',
-  'Laminado fosco',
-  'Laminado brilho',
-  'Adesivo recorte eletrônico',
-  'Adesivo meio corte',
-  'Adesivo corte reto',
-  'Aplicação',
-  'Refile',
-  'Solda',
-  'Costura',
-  'PVC expandido',
-  'Madeira',
-  'Estrutura metálica',
-  'Com instalação',
-  'Sem instalação'
+  'Sem acabamento','Ilhós','Bastão + corda','Dobrado','Laminado fosco','Laminado brilho',
+  'Adesivo recorte eletrônico','Adesivo meio corte','Adesivo corte reto','Aplicação','Refile',
+  'Solda','Costura','PVC expandido','Madeira','Estrutura metálica','Com instalação','Sem instalação'
 ]
 
-export const orderStatuses = [
-  'Entrada',
-  'Designer',
-  'Produção',
-  'Impressão',
-  'Acabamento',
-  'Pronto',
-  'Entregue'
-]
-
-export const priorities = [
-  'Baixa',
-  'Média',
-  'Alta',
-  'Urgente'
-]
+export const orderStatuses = ['Entrada','Designer','Produção','Impressão','Acabamento','Pronto','Entregue']
+export const priorities = ['Baixa','Média','Alta','Urgente']
 
 export function statusClass(s:string){
   if(['Recebido','Paga','Pronto','Entregue','Convertido','Concluído','Visualizada','Ativo'].includes(s)) return 'success'
@@ -90,10 +55,7 @@ export function formatDateBR(date?: string | null){
 }
 
 export function safeFileName(name: string) {
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9._-]/g, '_')
+  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_')
 }
 
 export function whatsappLink(phone?:string|null, text=''){
@@ -127,7 +89,6 @@ export function toCSV(rows:any[]){
 export async function imageToDataURL(url:string){
   const response = await fetch(url)
   const blob = await response.blob()
-
   return await new Promise<string>((resolve,reject)=>{
     const reader = new FileReader()
     reader.onloadend = () => resolve(String(reader.result))
