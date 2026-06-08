@@ -1,20 +1,26 @@
-PATCH BUILD VERCEL
+PATCH - RESTAURAR MÓDULOS
+
+Restaura:
+
+/financeiro
+/estoque
+/entregas
+/kanban
 
 Substitua:
 
-src/lib/utils.ts
+src/pages/Finance.tsx
+src/pages/Inventory.tsx
+src/pages/Deliveries.tsx
 src/pages/Kanban.tsx
-src/pages/Users.tsx
 
-Depois rode:
+Rode no Supabase:
 
-pnpm run build
+supabase/patch_restaurar_modulos.sql
 
-Se passar:
+Depois:
 
+npm run build
 git add .
-git commit -m "corrige exports utils e build"
-git push origin main
-
-Na Vercel:
-Redeploy com Clear Build Cache.
+git commit -m "restaura modulos"
+git push
