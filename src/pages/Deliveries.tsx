@@ -12,17 +12,7 @@ function badge(s:string){
 export default function Deliveries(){
   const [rows,setRows]=useState<any[]>([])
   const [orders,setOrders]=useState<any[]>([])
-  const [form,setForm]=useState({
-    service_order_id:'',
-    team:'',
-    vehicle:'',
-    route:'',
-    address:'',
-    installation_date:today(),
-    installation_time:'',
-    status:'Agendado',
-    notes:''
-  })
+  const [form,setForm]=useState({service_order_id:'',team:'',vehicle:'',route:'',address:'',installation_date:today(),installation_time:'',status:'Agendado',notes:''})
 
   useEffect(()=>{load()},[])
 
@@ -37,11 +27,7 @@ export default function Deliveries(){
 
   async function save(e:React.FormEvent){
     e.preventDefault()
-    await supabase.from('installations').insert({
-      ...form,
-      service_order_id:form.service_order_id||null,
-      installation_time:form.installation_time||null
-    })
+    await supabase.from('installations').insert({...form,service_order_id:form.service_order_id||null,installation_time:form.installation_time||null})
     setForm({service_order_id:'',team:'',vehicle:'',route:'',address:'',installation_date:today(),installation_time:'',status:'Agendado',notes:''})
     load()
   }
@@ -89,22 +75,18 @@ export default function Deliveries(){
         <table>
           <thead><tr><th>OS</th><th>Equipe</th><th>Veículo</th><th>Rota</th><th>Endereço</th><th>Data</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
-            {rows.map(r=>
-              <tr key={r.id}>
-                <td>{r.service_orders?.os_number || '-'}<br/><small>{r.service_orders?.service}</small></td>
-                <td>{r.team}</td>
-                <td>{r.vehicle}</td>
-                <td>{r.route}</td>
-                <td>{r.address}</td>
-                <td><input className="input" type="date" defaultValue={r.installation_date} onBlur={e=>updateDate(r.id,e.target.value)}/></td>
-                <td>
-                  <select className={`input ${badge(r.status)}`} value={r.status} onChange={e=>updateStatus(r.id,e.target.value)}>
-                    <option>Agendado</option><option>Em rota</option><option>Concluído</option><option>Reagendado</option><option>Cancelado</option>
-                  </select>
-                </td>
-                <td><button className="btn-red" onClick={()=>remove(r.id)}>Apagar</button></td>
-              </tr>
-            )}
+            {rows.map(r=><tr key={r.id}>
+              <td>{r.service_orders?.os_number || '-'}<br/><small>{r.service_orders?.service}</small></td>
+              <td>{r.team}</td>
+              <td>{r.vehicle}</td>
+              <td>{r.route}</td>
+              <td>{r.address}</td>
+              <td><input className="input" type="date" defaultValue={r.installation_date} onBlur={e=>updateDate(r.id,e.target.value)}/></td>
+              <td><select className={`input ${badge(r.status)}`} value={r.status} onChange={e=>updateStatus(r.id,e.target.value)}>
+                <option>Agendado</option><option>Em rota</option><option>Concluído</option><option>Reagendado</option><option>Cancelado</option>
+              </select></td>
+              <td><button className="btn-red" onClick={()=>remove(r.id)}>Apagar</button></td>
+            </tr>)}
             {rows.length===0 && <tr><td colSpan={8} className="text-zinc-400">Nenhuma entrega cadastrada.</td></tr>}
           </tbody>
         </table>
