@@ -53,72 +53,39 @@ export default function Kanban(){
 
       <div className="hidden overflow-x-auto pb-5 md:block">
         <div className="grid min-w-[1500px] grid-cols-7 gap-4">
-          {statuses.map(status=>
-            <section key={status} className="min-h-[620px] rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-black/20 p-3 shadow-2xl" onDragOver={e=>e.preventDefault()} onDrop={()=>drop(status)}>
-              <div className="sticky top-0 z-10 mb-3 rounded-2xl border border-white/10 bg-black/70 p-3 backdrop-blur">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-black text-gold">{status}</h2>
-                  <span className="rounded-full bg-gold/15 px-3 py-1 text-xs font-black text-gold">{totals[status]?.count || 0}</span>
+          {statuses.map(status=><section key={status} className="min-h-[620px] rounded-3xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-black/20 p-3 shadow-2xl" onDragOver={e=>e.preventDefault()} onDrop={()=>drop(status)}>
+            <div className="sticky top-0 z-10 mb-3 rounded-2xl border border-white/10 bg-black/70 p-3 backdrop-blur">
+              <div className="flex items-center justify-between">
+                <h2 className="font-black text-gold">{status}</h2>
+                <span className="rounded-full bg-gold/15 px-3 py-1 text-xs font-black text-gold">{totals[status]?.count || 0}</span>
+              </div>
+              <p className="mt-1 text-xs text-zinc-500">{money(totals[status]?.total || 0)}</p>
+            </div>
+
+            <div className="space-y-3">
+              {rows.filter(r=>r.status===status).map(r=><article key={r.id} draggable onDragStart={()=>setDragId(r.id)} className={`rounded-2xl border p-4 shadow-xl transition hover:-translate-y-1 hover:border-gold/40 ${r.priority==='Urgente'?'border-red-500/30 bg-gradient-to-b from-red-950/50 to-black':'border-white/10 bg-gradient-to-b from-zinc-900 to-black'}`}>
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <div><h3 className="text-lg font-black">{r.os_number}</h3><p className="mt-1 text-sm text-zinc-300">{r.service}</p><p className="text-xs text-zinc-500">{r.clients?.company || r.clients?.name || 'Sem cliente'}</p></div>
+                  <span className={`badge ${statusClass(r.priority || 'Média')}`}>{r.priority || 'Média'}</span>
                 </div>
-                <p className="mt-1 text-xs text-zinc-500">{money(totals[status]?.total || 0)}</p>
-              </div>
-
-              <div className="space-y-3">
-                {rows.filter(r=>r.status===status).map(r=>
-                  <article key={r.id} draggable onDragStart={()=>setDragId(r.id)} className={`rounded-2xl border p-4 shadow-xl transition hover:-translate-y-1 hover:border-gold/40 ${r.priority==='Urgente'?'border-red-500/30 bg-gradient-to-b from-red-950/50 to-black':'border-white/10 bg-gradient-to-b from-zinc-900 to-black'}`}>
-                    <div className="mb-3 flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="text-lg font-black">{r.os_number}</h3>
-                        <p className="mt-1 text-sm text-zinc-300">{r.service}</p>
-                        <p className="text-xs text-zinc-500">{r.clients?.company || r.clients?.name || 'Sem cliente'}</p>
-                      </div>
-                      <span className={`badge ${statusClass(r.priority || 'Média')}`}>{r.priority || 'Média'}</span>
-                    </div>
-
-                    <div className="mb-3 flex flex-wrap gap-2">
-                      <span className="badge info">{money(r.estimated_price)}</span>
-                      {r.finishing && <span className="badge warning">{r.finishing}</span>}
-                    </div>
-
-                    <div className="space-y-1 rounded-xl bg-black/30 p-3 text-xs text-zinc-400">
-                      <p>Designer: <span className="text-zinc-200">{r.designer_responsible || '-'}</span></p>
-                      <p>Impressor: <span className="text-zinc-200">{r.printer_responsible || '-'}</span></p>
-                      <p>Prevista: <span className="text-zinc-200">{brDate(r.due_date)}</span></p>
-                    </div>
-
-                    {r.print_file_url && <a href={r.print_file_url} target="_blank" className="mt-3 block text-sm font-bold text-gold">Abrir arquivo</a>}
-                  </article>
-                )}
-                {rows.filter(r=>r.status===status).length===0 && <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">Arraste uma OS para cá</div>}
-              </div>
-            </section>
-          )}
+                <div className="mb-3 flex flex-wrap gap-2"><span className="badge info">{money(r.estimated_price)}</span>{r.finishing && <span className="badge warning">{r.finishing}</span>}</div>
+                <div className="space-y-1 rounded-xl bg-black/30 p-3 text-xs text-zinc-400"><p>Designer: <span className="text-zinc-200">{r.designer_responsible || '-'}</span></p><p>Impressor: <span className="text-zinc-200">{r.printer_responsible || '-'}</span></p><p>Prevista: <span className="text-zinc-200">{brDate(r.due_date)}</span></p></div>
+                {r.print_file_url && <a href={r.print_file_url} target="_blank" className="mt-3 block text-sm font-bold text-gold">Abrir arquivo</a>}
+              </article>)}
+              {rows.filter(r=>r.status===status).length===0 && <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">Arraste uma OS para cá</div>}
+            </div>
+          </section>)}
         </div>
       </div>
 
       <div className="grid gap-4 md:hidden">
-        {statuses.map(status=>
-          <section key={status} className="card">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-xl font-black text-gold">{status}</h2>
-              <span className="badge warning">{totals[status]?.count || 0}</span>
-            </div>
-            <div className="grid gap-3">
-              {rows.filter(r=>r.status===status).map(r=>
-                <article key={r.id} className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                  <h3 className="font-black">{r.os_number}</h3>
-                  <p>{r.service}</p>
-                  <p className="text-sm text-zinc-400">{r.clients?.company || r.clients?.name}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className={`badge ${statusClass(r.priority || 'Média')}`}>{r.priority || 'Média'}</span>
-                    <span className="badge info">{money(r.estimated_price)}</span>
-                  </div>
-                </article>
-              )}
-              {rows.filter(r=>r.status===status).length===0 && <p className="text-sm text-zinc-500">Nenhuma OS.</p>}
-            </div>
-          </section>
-        )}
+        {statuses.map(status=><section key={status} className="card">
+          <div className="mb-3 flex items-center justify-between"><h2 className="text-xl font-black text-gold">{status}</h2><span className="badge warning">{totals[status]?.count || 0}</span></div>
+          <div className="grid gap-3">
+            {rows.filter(r=>r.status===status).map(r=><article key={r.id} className="rounded-2xl border border-white/10 bg-black/30 p-4"><h3 className="font-black">{r.os_number}</h3><p>{r.service}</p><p className="text-sm text-zinc-400">{r.clients?.company || r.clients?.name}</p><div className="mt-3 flex flex-wrap gap-2"><span className={`badge ${statusClass(r.priority || 'Média')}`}>{r.priority || 'Média'}</span><span className="badge info">{money(r.estimated_price)}</span></div></article>)}
+            {rows.filter(r=>r.status===status).length===0 && <p className="text-sm text-zinc-500">Nenhuma OS.</p>}
+          </div>
+        </section>)}
       </div>
     </div>
   )

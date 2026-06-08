@@ -5,15 +5,8 @@ import jsPDF from 'jspdf'
 function money(v:any){ return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v||0)) }
 function today(){ return new Date().toISOString().slice(0,10) }
 function currentMonth(){ return new Date().toISOString().slice(0,7) }
-function monthRange(ym:string){
-  const [y,m]=ym.split('-').map(Number)
-  return {start:`${ym}-01`,end:new Date(y,m,0).toISOString().slice(0,10)}
-}
-function brDate(v?:string|null){
-  if(!v)return '-'
-  const [y,m,d]=v.slice(0,10).split('-')
-  return `${d}/${m}/${y}`
-}
+function monthRange(ym:string){ const [y,m]=ym.split('-').map(Number); return {start:`${ym}-01`,end:new Date(y,m,0).toISOString().slice(0,10)} }
+function brDate(v?:string|null){ if(!v)return '-'; const [y,m,d]=v.slice(0,10).split('-'); return `${d}/${m}/${y}` }
 
 export default function Finance(){
   const [tab,setTab]=useState<'receber'|'pagar'|'fluxo'>('receber')
@@ -130,11 +123,7 @@ export default function Finance(){
               <td>{money(r.amount)}</td>
               <td>{r.is_recurring?'Sim':'Não'}</td>
               <td><select className="input" value={r.status} onChange={e=>updateStatus(tab==='receber'?'accounts_receivable':'accounts_payable',r.id,e.target.value)}>
-                {tab==='receber' ? <>
-                  <option>Aberto</option><option>Recebido</option><option>Vencido</option>
-                </> : <>
-                  <option>A pagar</option><option>Paga</option><option>Vencida</option>
-                </>}
+                {tab==='receber' ? <><option>Aberto</option><option>Recebido</option><option>Vencido</option></> : <><option>A pagar</option><option>Paga</option><option>Vencida</option></>}
               </select></td>
               <td><button className="btn-gold" onClick={()=>receipt(r,tab as any)}>PDF</button></td>
             </tr>)}
