@@ -1,8 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
-
 import Layout from './components/Layout'
 import Protected from './components/Protected'
-
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
@@ -15,6 +13,8 @@ import Finance from './pages/Finance'
 import Inventory from './pages/Inventory'
 import Deliveries from './pages/Deliveries'
 import Kanban from './pages/Kanban'
+import Users from './pages/Users'
+import Settings from './pages/Settings'
 
 export default function App() {
   return (
@@ -22,7 +22,6 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/orcamento-rapido" element={<PublicQuote />} />
       <Route path="/portal-terceiro" element={<Portal />} />
-
       <Route element={<Protected />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
@@ -34,6 +33,8 @@ export default function App() {
           <Route path="/estoque" element={<Inventory />} />
           <Route path="/entregas" element={<Deliveries />} />
           <Route path="/kanban" element={<Kanban />} />
+          <Route path="/usuarios" element={<Users />} />
+          <Route path="/configuracoes" element={<Settings />} />
         </Route>
       </Route>
     </Routes>

@@ -1,19 +1,17 @@
 export const money = (v:number|null|undefined) =>
   new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v||0))
 
-export const brNumber = (v:string) =>
+export const brNumber = (v:string|number) =>
   Number(String(v||'').replace(/\./g,'').replace(',','.')) || 0
 
-export const onlyNumbers = (v:string) =>
-  String(v||'').replace(/\D/g,'')
+export const cmToM = (v:string|number) => brNumber(v) / 100
 
-export const today = () =>
-  new Date().toISOString().slice(0,10)
+export const onlyNumbers = (v:string) => String(v||'').replace(/\D/g,'')
 
-export const currentMonth = () =>
-  new Date().toISOString().slice(0,7)
+export const today = () => new Date().toISOString().slice(0,10)
+export const currentMonth = () => new Date().toISOString().slice(0,7)
 
-export const roles = ['Administrador','Financeiro','Produção','Vendas','Funcionário']
+export const roles = ['Administrador','Orçamento','Financeiro','Produção','Vendas','Funcionário']
 
 export const finishings = [
   'Sem acabamento','Ilhós','Bastão + corda','Dobrado','Laminado fosco','Laminado brilho',
@@ -21,7 +19,7 @@ export const finishings = [
   'Solda','Costura','PVC expandido','Madeira','Estrutura metálica','Com instalação','Sem instalação'
 ]
 
-export const orderStatuses = ['Entrada','Designer','Produção','Impressão','Acabamento','Pronto','Entregue']
+export const orderStatuses = ['Orçamento','Entrada','Designer','Produção','Impressão','Acabamento','Pronto','Entregue','Cancelado']
 export const priorities = ['Baixa','Média','Alta','Urgente']
 
 export function statusClass(s:string){
