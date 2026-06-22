@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { money, statusClass, today } from '../lib/utils'
 import { nextOSNumber } from '../lib/osNumber'
@@ -55,6 +55,8 @@ export default function Quotes(){
   const [periodValue,setPeriodValue]=useState('')
   const [valueOrder,setValueOrder]=useState('')
   const [selectedIds,setSelectedIds]=useState<string[]>([])
+  const topScrollRef = useRef<HTMLDivElement|null>(null)
+  const tableScrollRef = useRef<HTMLDivElement|null>(null)
 
   useEffect(()=>{load()},[])
 
@@ -96,6 +98,14 @@ export default function Quotes(){
     }
     return filteredRows
   },[rows,search,statusFilter,periodType,periodValue,valueOrder])
+
+  function syncHorizontalScroll(source:'top'|'table'){
+    const top = topScrollRef.current
+    const table = tableScrollRef.current
+    if(!top || !table) return
+    if(source === 'top') table.scrollLeft = top.scrollLeft
+    else top.scrollLeft = table.scrollLeft
+  }
 
 
   function toggleSelected(id:string, checked:boolean){
@@ -308,7 +318,11 @@ export default function Quotes(){
         </select>
       </section>
 
-      <div className="card table-wrap">
+      <div className="card p-0">
+        <div ref={topScrollRef} onScroll={()=>syncHorizontalScroll('top')} className="overflow-x-auto border-b border-white/10 px-5 pt-4 pb-2">
+          <div className="h-1 min-w-[1350px]"></div>
+        </div>
+        <div ref={tableScrollRef} onScroll={()=>syncHorizontalScroll('table')} className="table-wrap px-5 pb-5 pt-2">
         <table className="min-w-[1350px]">
           <thead><tr><th><input type="checkbox" checked={filtered.length>0 && selectedIds.length===filtered.length} onChange={e=>toggleAllVisible(e.target.checked)}/></th><th>Código</th><th>Cliente</th><th>Projeto</th><th>Serviços</th><th>Imagem/Arquivo</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
@@ -349,6 +363,7 @@ export default function Quotes(){
             {filtered.length===0 && <tr><td colSpan={9} className="p-8 text-center text-zinc-400">Nenhum orçamento encontrado.</td></tr>}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

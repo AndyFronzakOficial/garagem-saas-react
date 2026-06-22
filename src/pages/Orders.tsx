@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import jsPDF from 'jspdf'
 
@@ -104,6 +104,8 @@ export default function Orders(){
   const [valueOrder,setValueOrder]=useState('')
   const [selectedIds,setSelectedIds]=useState<string[]>([])
   const [msg,setMsg]=useState('')
+  const topScrollRef = useRef<HTMLDivElement|null>(null)
+  const tableScrollRef = useRef<HTMLDivElement|null>(null)
 
   useEffect(()=>{load()},[])
 
@@ -132,6 +134,14 @@ export default function Orders(){
     }
 
     setLoading(false)
+  }
+
+  function syncHorizontalScroll(source:'top'|'table'){
+    const top = topScrollRef.current
+    const table = tableScrollRef.current
+    if(!top || !table) return
+    if(source === 'top') table.scrollLeft = top.scrollLeft
+    else top.scrollLeft = table.scrollLeft
   }
 
 
@@ -442,7 +452,10 @@ export default function Orders(){
       </section>
 
       <div className="card p-0">
-        <div className="overflow-x-auto">
+        <div ref={topScrollRef} onScroll={()=>syncHorizontalScroll('top')} className="overflow-x-auto border-b border-white/10 px-5 pt-4 pb-2">
+          <div className="h-1 min-w-[1450px]"></div>
+        </div>
+        <div ref={tableScrollRef} onScroll={()=>syncHorizontalScroll('table')} className="overflow-x-auto px-5 pb-5 pt-2">
           <table className="min-w-[1450px]">
             <thead>
               <tr className="bg-black/30">
