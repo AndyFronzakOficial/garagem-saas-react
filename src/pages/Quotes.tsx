@@ -54,6 +54,7 @@ export default function Quotes(){
   const [periodType,setPeriodType]=useState('')
   const [periodValue,setPeriodValue]=useState('')
   const [valueOrder,setValueOrder]=useState('')
+  const [selectedIds,setSelectedIds]=useState<string[]>([])
 
   useEffect(()=>{load()},[])
 
@@ -64,7 +65,10 @@ export default function Quotes(){
       supabase.from('company_settings').select('*').eq('id',1).maybeSingle()
     ])
     if(quotes.error) setMsg('Erro ao carregar orçamentos: ' + quotes.error.message)
-    else setRows(quotes.data || [])
+    else {
+      setRows(quotes.data || [])
+      setSelectedIds([])
+    }
     if(!cfg.error) setCompany(cfg.data)
     setLoading(false)
   }
@@ -92,6 +96,28 @@ export default function Quotes(){
     }
     return filteredRows
   },[rows,search,statusFilter,periodType,periodValue,valueOrder])
+
+
+  function toggleSelected(id:string, checked:boolean){
+    setSelectedIds(prev=>checked ? Array.from(new Set([...prev,id])) : prev.filter(x=>x!==id))
+  }
+
+  function toggleAllVisible(checked:boolean){
+    setSelectedIds(checked ? filtered.map(r=>r.id) : [])
+  }
+
+  async function deleteSelectedQuotes(){
+    if(selectedIds.length === 0){ setMsg('Selecione pelo menos um orçamento para excluir.'); return }
+    const ok = confirm(`Excluir ${selectedIds.length} orçamento(s) selecionado(s)? Essa ação não pode ser desfeita.`)
+    if(!ok) return
+    setLoading(true)
+    const { error } = await supabase.from('public_quotes').delete().in('id', selectedIds)
+    if(error) setMsg('Erro ao excluir orçamento(s): ' + error.message)
+    else setMsg(`${selectedIds.length} orçamento(s) excluído(s) com sucesso.`)
+    setSelectedIds([])
+    await load()
+    setLoading(false)
+  }
 
   async function updateStatus(id:string,status:string){
     await supabase.from('public_quotes').update({status}).eq('id',id)
@@ -251,7 +277,10 @@ export default function Quotes(){
           <h1 className="text-4xl font-black">Orçamentos</h1>
           <p className="text-zinc-400">Orçamentos públicos recebidos, PDF para cliente e conversão para OS aprovada.</p>
         </div>
-        <button className="btn-dark" onClick={load}>{loading ? 'Atualizando...' : 'Atualizar'}</button>
+        <div className="flex flex-wrap gap-2">
+          {selectedIds.length > 0 && <button className="btn-red" onClick={deleteSelectedQuotes}>Excluir selecionados ({selectedIds.length})</button>}
+          <button className="btn-dark" onClick={load}>{loading ? 'Atualizando...' : 'Atualizar'}</button>
+        </div>
       </header>
 
       {msg && <div className="mb-4 rounded-xl border border-gold/30 bg-gold/10 p-4 text-gold">{msg}</div>}
@@ -281,13 +310,14 @@ export default function Quotes(){
 
       <div className="card table-wrap">
         <table className="min-w-[1350px]">
-          <thead><tr><th>Código</th><th>Cliente</th><th>Projeto</th><th>Serviços</th><th>Imagem/Arquivo</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th><input type="checkbox" checked={filtered.length>0 && selectedIds.length===filtered.length} onChange={e=>toggleAllVisible(e.target.checked)}/></th><th>Código</th><th>Cliente</th><th>Projeto</th><th>Serviços</th><th>Imagem/Arquivo</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
             {filtered.map(r=>{
               const items = normalizeItems(r)
               const total = items.reduce((sum:number,item:any)=>sum+Number(item.estimated_price || 0),0) || Number(r.estimated_price || 0)
               return (
                 <tr key={r.id}>
+                  <td><input type="checkbox" checked={selectedIds.includes(r.id)} onChange={e=>toggleSelected(r.id,e.target.checked)}/></td>
                   <td><strong>{r.quote_number}</strong><br/>{r.converted_os_number && <small className="text-green-300">OS: {r.converted_os_number}</small>}<br/><small className="text-zinc-500">{brDate(r.created_at)}</small></td>
                   <td><strong>{r.client_name}</strong><br/><small>{r.company}</small><br/><small>{r.phone}</small><br/><small>{r.email}</small></td>
                   <td><strong>{r.project_name || '-'}</strong><br/><small className="text-zinc-400">{r.description || '-'}</small></td>
@@ -316,7 +346,7 @@ export default function Quotes(){
                 </tr>
               )
             })}
-            {filtered.length===0 && <tr><td colSpan={8} className="p-8 text-center text-zinc-400">Nenhum orçamento encontrado.</td></tr>}
+            {filtered.length===0 && <tr><td colSpan={9} className="p-8 text-center text-zinc-400">Nenhum orçamento encontrado.</td></tr>}
           </tbody>
         </table>
       </div>

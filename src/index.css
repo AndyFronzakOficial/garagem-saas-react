@@ -112,3 +112,8 @@ td{
 .price-preview strong{
   @apply text-3xl text-gold;
 }
+
+@keyframes splashBar {
+  from { width: 0%; }
+  to { width: 100%; }
+}

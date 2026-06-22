@@ -102,6 +102,7 @@ export default function Orders(){
   const [periodType,setPeriodType]=useState('')
   const [periodValue,setPeriodValue]=useState('')
   const [valueOrder,setValueOrder]=useState('')
+  const [selectedIds,setSelectedIds]=useState<string[]>([])
   const [msg,setMsg]=useState('')
 
   useEffect(()=>{load()},[])
@@ -123,12 +124,35 @@ export default function Orders(){
 
     if(!orders.error){
       setRows((orders.data||[]).filter((r:any)=>!r.is_deleted))
+      setSelectedIds([])
     }
 
     if(!cfg.error){
       setCompany(cfg.data)
     }
 
+    setLoading(false)
+  }
+
+
+  function toggleSelected(id:string, checked:boolean){
+    setSelectedIds(prev=>checked ? Array.from(new Set([...prev,id])) : prev.filter(x=>x!==id))
+  }
+
+  function toggleAllVisible(checked:boolean){
+    setSelectedIds(checked ? filtered.map(r=>r.id) : [])
+  }
+
+  async function deleteSelectedOrders(){
+    if(selectedIds.length === 0){ setMsg('Selecione pelo menos uma ordem de serviço para excluir.'); return }
+    const ok = confirm(`Excluir ${selectedIds.length} ordem(ns) de serviço selecionada(s)?`)
+    if(!ok) return
+    setLoading(true)
+    const { error } = await supabase.from('service_orders').update({ is_deleted:true }).in('id', selectedIds)
+    if(error) setMsg('Erro ao excluir ordem(ns): ' + error.message)
+    else setMsg(`${selectedIds.length} ordem(ns) excluída(s) com sucesso.`)
+    setSelectedIds([])
+    await load()
     setLoading(false)
   }
 
@@ -355,6 +379,7 @@ export default function Orders(){
         </div>
 
         <div className="flex flex-wrap gap-3">
+          {selectedIds.length > 0 && <button className="btn-red" onClick={deleteSelectedOrders}>Excluir selecionadas ({selectedIds.length})</button>}
           <button className="btn-dark" onClick={load}>{loading?'Atualizando...':'Atualizar'}</button>
         </div>
       </header>
@@ -421,6 +446,7 @@ export default function Orders(){
           <table className="min-w-[1450px]">
             <thead>
               <tr className="bg-black/30">
+                <th><input type="checkbox" checked={filtered.length>0 && selectedIds.length===filtered.length} onChange={e=>toggleAllVisible(e.target.checked)}/></th>
                 <th>OS</th>
                 <th>Cliente</th>
                 <th>Serviço</th>
@@ -437,6 +463,7 @@ export default function Orders(){
             <tbody>
               {filtered.map(r=>(
                 <tr key={r.id} className="hover:bg-white/[0.03]">
+                  <td><input type="checkbox" checked={selectedIds.includes(r.id)} onChange={e=>toggleSelected(r.id,e.target.checked)}/></td>
                   <td>
                     <strong className="text-base">{r.os_number}</strong><br/>
                     <span className="badge info">{r.source || 'Interno'}</span>
@@ -533,7 +560,7 @@ export default function Orders(){
 
               {filtered.length===0 && (
                 <tr>
-                  <td colSpan={10} className="p-8 text-center text-zinc-400">
+                  <td colSpan={11} className="p-8 text-center text-zinc-400">
                     Nenhuma ordem de serviço encontrada.
                   </td>
                 </tr>
