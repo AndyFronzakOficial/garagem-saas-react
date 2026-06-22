@@ -99,6 +99,9 @@ export default function Orders(){
   const [search,setSearch]=useState('')
   const [statusFilter,setStatusFilter]=useState('')
   const [priorityFilter,setPriorityFilter]=useState('')
+  const [periodType,setPeriodType]=useState('')
+  const [periodValue,setPeriodValue]=useState('')
+  const [valueOrder,setValueOrder]=useState('')
   const [msg,setMsg]=useState('')
 
   useEffect(()=>{load()},[])
@@ -184,7 +187,7 @@ export default function Orders(){
 
   const filtered = useMemo(()=>{
     const q = search.toLowerCase().trim()
-    return rows.filter(r=>{
+    const filteredRows = rows.filter(r=>{
       const text = [
         r.os_number,
         r.service,
@@ -199,10 +202,24 @@ export default function Orders(){
       if(q && !text.includes(q)) return false
       if(statusFilter && r.status !== statusFilter) return false
       if(priorityFilter && (r.priority || 'Média') !== priorityFilter) return false
+      if(periodType && periodValue){
+        const created = String(r.created_at || '').slice(0,10)
+        if(periodType === 'day' && created !== periodValue) return false
+        if(periodType === 'month' && created.slice(0,7) !== periodValue) return false
+        if(periodType === 'year' && created.slice(0,4) !== periodValue) return false
+      }
 
       return true
     })
-  },[rows,search,statusFilter,priorityFilter])
+    if(valueOrder){
+      filteredRows.sort((a,b)=>{
+        const totalA = Number(a.estimated_price || 0)
+        const totalB = Number(b.estimated_price || 0)
+        return valueOrder === 'asc' ? totalA - totalB : totalB - totalA
+      })
+    }
+    return filteredRows
+  },[rows,search,statusFilter,priorityFilter,periodType,periodValue,valueOrder])
 
   const totalValue = filtered.reduce((a,b)=>a+Number(b.estimated_price||0),0)
   const inProduction = filtered.filter(r=>['Designer','Produção','Impressão','Acabamento'].includes(r.status)).length
@@ -263,27 +280,30 @@ export default function Orders(){
 
     const items = normalizeItems(o)
     let y = 127
+    let shownItems = 0
     pdf.setFontSize(8.5)
     items.forEach((item:any,index:number)=>{
-      if(y > 154) return
+      if(y > 148) return
+      shownItems += 1
       pdf.setFont('helvetica','bold')
       pdf.text(`${index+1}. ${item.service_name || 'Serviço'}`,10,y)
       pdf.setFont('helvetica','normal')
       pdf.text(`Medidas: ${formatCm(item.width_cm)} x ${formatCm(item.height_cm)} | Área: ${Number(item.area_m2 || 0).toFixed(2)} m²`,10,y+5)
       pdf.text(`Valor: ${money(item.estimated_price)}`,74,y+5)
       const obs = item.observation || (index === 0 ? o.description : '') || 'Sem observação.'
-      pdf.text(pdf.splitTextToSize(`Obs: ${obs}`,92),10,y+10)
-      y += 18
+      const obsLines = pdf.splitTextToSize(`Obs: ${obs}`,92)
+      pdf.text(obsLines,10,y+10)
+      y += 14 + (obsLines.length * 4)
     })
-    if(items.length > 2){
+    if(items.length > shownItems){
       pdf.setFontSize(8)
-      pdf.text(`+ ${items.length - 2} serviço(s) listado(s) no orçamento completo.`,10,160)
+      pdf.text(`+ ${items.length - shownItems} serviço(s) no orçamento completo.`,10,158)
     }
 
     pdf.setFontSize(9)
-    pdf.text(`Acabamento: ${o.finishing || '-'}`,10,154)
     pdf.text(`Prioridade: ${o.priority || 'Média'}`,132,128)
     pdf.text(`Valor total: ${money(o.estimated_price)}`,132,136)
+    pdf.text(`Acabamento: ${o.finishing || '-'}`,132,144)
 
     await addProjectImageToPdf(pdf,o.approved_art_image_url || o.project_image_url)
 
@@ -360,13 +380,30 @@ export default function Orders(){
         </article>
       </section>
 
-      <section className="card mb-5 grid gap-3 md:grid-cols-4">
+      <section className="card mb-5 grid gap-3 md:grid-cols-6">
         <input
           className="input md:col-span-2"
-          placeholder="Buscar por OS, cliente, serviço ou telefone..."
+          placeholder="Buscar por nome, OS, cliente, serviço ou telefone..."
           value={search}
           onChange={e=>setSearch(e.target.value)}
         />
+
+        <select className="input" value={periodType} onChange={e=>{setPeriodType(e.target.value); setPeriodValue('')}}>
+          <option value="">Filtrar data</option>
+          <option value="day">Por dia</option>
+          <option value="month">Por mês</option>
+          <option value="year">Por ano</option>
+        </select>
+        {periodType === 'day' && <input className="input" type="date" value={periodValue} onChange={e=>setPeriodValue(e.target.value)}/>}
+        {periodType === 'month' && <input className="input" type="month" value={periodValue} onChange={e=>setPeriodValue(e.target.value)}/>}
+        {periodType === 'year' && <input className="input" type="number" min="2000" max="2100" placeholder="Ano" value={periodValue} onChange={e=>setPeriodValue(e.target.value)}/>}
+        {!periodType && <div className="hidden md:block"></div>}
+
+        <select className="input" value={valueOrder} onChange={e=>setValueOrder(e.target.value)}>
+          <option value="">Valor</option>
+          <option value="asc">Valor crescente</option>
+          <option value="desc">Valor decrescente</option>
+        </select>
 
         <select className="input" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
           <option value="">Todos os status</option>

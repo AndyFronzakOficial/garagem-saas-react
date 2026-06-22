@@ -51,6 +51,9 @@ export default function Quotes(){
   const [loading,setLoading]=useState(false)
   const [search,setSearch]=useState('')
   const [statusFilter,setStatusFilter]=useState('')
+  const [periodType,setPeriodType]=useState('')
+  const [periodValue,setPeriodValue]=useState('')
+  const [valueOrder,setValueOrder]=useState('')
 
   useEffect(()=>{load()},[])
 
@@ -68,13 +71,27 @@ export default function Quotes(){
 
   const filtered = useMemo(()=>{
     const q = search.toLowerCase().trim()
-    return rows.filter(r=>{
+    const filteredRows = rows.filter(r=>{
       const text = [r.quote_number,r.client_name,r.company,r.phone,r.email,r.project_name,r.service_name,r.description,JSON.stringify(r.quote_items || [])].join(' ').toLowerCase()
       if(q && !text.includes(q)) return false
       if(statusFilter && (r.status || 'Novo') !== statusFilter) return false
+      if(periodType && periodValue){
+        const created = String(r.created_at || '').slice(0,10)
+        if(periodType === 'day' && created !== periodValue) return false
+        if(periodType === 'month' && created.slice(0,7) !== periodValue) return false
+        if(periodType === 'year' && created.slice(0,4) !== periodValue) return false
+      }
       return true
     })
-  },[rows,search,statusFilter])
+    if(valueOrder){
+      filteredRows.sort((a,b)=>{
+        const totalA = normalizeItems(a).reduce((sum:number,item:any)=>sum+Number(item.estimated_price || 0),0) || Number(a.estimated_price || 0)
+        const totalB = normalizeItems(b).reduce((sum:number,item:any)=>sum+Number(item.estimated_price || 0),0) || Number(b.estimated_price || 0)
+        return valueOrder === 'asc' ? totalA - totalB : totalB - totalA
+      })
+    }
+    return filteredRows
+  },[rows,search,statusFilter,periodType,periodValue,valueOrder])
 
   async function updateStatus(id:string,status:string){
     await supabase.from('public_quotes').update({status}).eq('id',id)
@@ -239,8 +256,23 @@ export default function Quotes(){
 
       {msg && <div className="mb-4 rounded-xl border border-gold/30 bg-gold/10 p-4 text-gold">{msg}</div>}
 
-      <section className="card mb-5 grid gap-3 md:grid-cols-3">
-        <input className="input md:col-span-2" placeholder="Buscar por cliente, projeto, serviço, telefone..." value={search} onChange={e=>setSearch(e.target.value)}/>
+      <section className="card mb-5 grid gap-3 md:grid-cols-6">
+        <input className="input md:col-span-2" placeholder="Buscar por nome, cliente, projeto, serviço ou telefone..." value={search} onChange={e=>setSearch(e.target.value)}/>
+        <select className="input" value={periodType} onChange={e=>{setPeriodType(e.target.value); setPeriodValue('')}}>
+          <option value="">Filtrar data</option>
+          <option value="day">Por dia</option>
+          <option value="month">Por mês</option>
+          <option value="year">Por ano</option>
+        </select>
+        {periodType === 'day' && <input className="input" type="date" value={periodValue} onChange={e=>setPeriodValue(e.target.value)}/>}
+        {periodType === 'month' && <input className="input" type="month" value={periodValue} onChange={e=>setPeriodValue(e.target.value)}/>}
+        {periodType === 'year' && <input className="input" type="number" min="2000" max="2100" placeholder="Ano" value={periodValue} onChange={e=>setPeriodValue(e.target.value)}/>}
+        {!periodType && <div className="hidden md:block"></div>}
+        <select className="input" value={valueOrder} onChange={e=>setValueOrder(e.target.value)}>
+          <option value="">Valor</option>
+          <option value="asc">Valor crescente</option>
+          <option value="desc">Valor decrescente</option>
+        </select>
         <select className="input" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
           <option value="">Todos os status</option>
           <option>Novo</option><option>Em análise</option><option>Convertido</option><option>Recusado</option>
