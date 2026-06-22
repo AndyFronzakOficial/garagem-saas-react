@@ -7,6 +7,7 @@ import Clients from './pages/Clients'
 import Prices from './pages/Prices'
 import PublicQuote from './pages/PublicQuote'
 import Leads from './pages/Leads'
+import Quotes from './pages/Quotes'
 import Orders from './pages/Orders'
 import Portal from './pages/Portal'
 import Finance from './pages/Finance'
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/clientes" element={<Clients />} />
           <Route path="/leads" element={<Leads />} />
+          <Route path="/orcamentos" element={<Quotes />} />
           <Route path="/ordens" element={<Orders />} />
           <Route path="/precos" element={<Prices />} />
           <Route path="/financeiro" element={<Finance />} />

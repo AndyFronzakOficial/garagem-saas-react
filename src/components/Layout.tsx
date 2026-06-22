@@ -6,6 +6,7 @@ const links = [
   {to:'/', label:'Dashboard', roles:['Administrador','Financeiro','Produção','Vendas','Funcionário']},
   {to:'/clientes', label:'Clientes', roles:['Administrador','Vendas','Financeiro','Orçamento']},
   {to:'/leads', label:'Novos Leads', roles:['Administrador','Vendas','Orçamento']},
+  {to:'/orcamentos', label:'Orçamentos', roles:['Administrador','Vendas','Orçamento','Financeiro']},
   {to:'/ordens', label:'Ordens de Serviço', roles:['Administrador','Produção','Vendas','Funcionário','Orçamento']},
   {to:'/kanban', label:'Kanban', roles:['Administrador','Produção','Funcionário']},
   {to:'/precos', label:'Preços por m²', roles:['Administrador','Financeiro']},

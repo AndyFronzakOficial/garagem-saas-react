@@ -17,7 +17,7 @@ function today(){
   return new Date().toISOString().slice(0,10)
 }
 
-const statuses = ['Entrada','Designer','Produção','Impressão','Acabamento','Pronto','Entregue']
+const statuses = ['Entrada','Designer','Produção','Impressão','Acabamento','Pronto','Entregue','Cancelado']
 const priorities = ['Baixa','Média','Alta','Urgente']
 
 function statusClass(s:string){
@@ -68,11 +68,28 @@ async function addProjectImageToPdf(pdf:jsPDF, imageUrl?:string|null){
     const y = 163 + ((maxH - h) / 2)
 
     pdf.setFontSize(11)
-    pdf.text('IMAGEM DO PROJETO',108,158)
+    pdf.text('ARTE APROVADA / IMAGEM DO PROJETO',108,158)
     pdf.setDrawColor(220,220,220)
     pdf.roundedRect(108,161,maxW,maxH,2,2)
     pdf.addImage(dataUrl, x, y, w, h)
   }catch{}
+}
+
+
+function normalizeItems(o:any){
+  if(Array.isArray(o.quote_items) && o.quote_items.length) return o.quote_items
+  return [{
+    service_name:o.service || o.service_type || 'Serviço',
+    width_cm:Number(o.width_cm || 0) || Number(o.width_m || 0) * 100,
+    height_cm:Number(o.height_cm || 0) || Number(o.height_m || 0) * 100,
+    area_m2:Number(o.area_m2 || 0),
+    estimated_price:o.estimated_price || 0,
+    observation:o.description || null
+  }]
+}
+
+function formatCm(v:any){
+  return `${Number(v || 0).toFixed(0)}cm`
 }
 
 export default function Orders(){
@@ -82,6 +99,7 @@ export default function Orders(){
   const [search,setSearch]=useState('')
   const [statusFilter,setStatusFilter]=useState('')
   const [priorityFilter,setPriorityFilter]=useState('')
+  const [msg,setMsg]=useState('')
 
   useEffect(()=>{load()},[])
 
@@ -124,6 +142,44 @@ export default function Orders(){
       .eq('id',id)
 
     load()
+  }
+
+  async function uploadApprovedImage(order:any, file:File){
+    setMsg('')
+
+    try{
+      if(!file.type.startsWith('image/')) throw new Error('Selecione um arquivo de imagem.')
+      if(file.size > 50 * 1024 * 1024) throw new Error('A imagem precisa ter no máximo 50MB.')
+
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const safeNumber = String(order.os_number || order.id).replace(/[^a-zA-Z0-9_-]/g,'-')
+      const path = `service-orders/${safeNumber}/arte-aprovada-${Date.now()}.${ext}`
+
+      const { error } = await supabase.storage
+        .from('os-files')
+        .upload(path,file,{ upsert:false, contentType:file.type || 'image/jpeg' })
+
+      if(error) throw new Error('Erro ao enviar imagem para o Supabase: ' + error.message)
+
+      const { data } = supabase.storage.from('os-files').getPublicUrl(path)
+
+      const update:any = {
+        approved_art_image_url:data.publicUrl,
+        approved_art_image_name:file.name,
+        approved_art_image_path:path,
+        project_image_url:data.publicUrl,
+        project_image_name:file.name,
+        project_image_path:path
+      }
+
+      const updated = await supabase.from('service_orders').update(update).eq('id',order.id)
+      if(updated.error) throw new Error('Imagem enviada, mas não consegui salvar na OS: ' + updated.error.message)
+
+      setMsg('Imagem/arte aprovada adicionada na OS. Ela vai aparecer no PDF.')
+      load()
+    }catch(err:any){
+      setMsg(err.message || 'Erro ao enviar imagem.')
+    }
   }
 
   const filtered = useMemo(()=>{
@@ -203,20 +259,33 @@ export default function Orders(){
     pdf.line(10,106,200,106)
 
     pdf.setFontSize(11)
-    pdf.text('DESCRIÇÃO DO SERVIÇO',10,116)
+    pdf.text('SERVIÇOS DA ORDEM',10,116)
+
+    const items = normalizeItems(o)
+    let y = 127
+    pdf.setFontSize(8.5)
+    items.forEach((item:any,index:number)=>{
+      if(y > 154) return
+      pdf.setFont('helvetica','bold')
+      pdf.text(`${index+1}. ${item.service_name || 'Serviço'}`,10,y)
+      pdf.setFont('helvetica','normal')
+      pdf.text(`Medidas: ${formatCm(item.width_cm)} x ${formatCm(item.height_cm)} | Área: ${Number(item.area_m2 || 0).toFixed(2)} m²`,10,y+5)
+      pdf.text(`Valor: ${money(item.estimated_price)}`,74,y+5)
+      const obs = item.observation || (index === 0 ? o.description : '') || 'Sem observação.'
+      pdf.text(pdf.splitTextToSize(`Obs: ${obs}`,92),10,y+10)
+      y += 18
+    })
+    if(items.length > 2){
+      pdf.setFontSize(8)
+      pdf.text(`+ ${items.length - 2} serviço(s) listado(s) no orçamento completo.`,10,160)
+    }
 
     pdf.setFontSize(9)
-    pdf.text(`Serviço: ${o.service || '-'}`,10,128)
-    pdf.text(`Tipo: ${o.service_type || '-'}`,10,136)
-    pdf.text(`Medidas: ${o.measures || '-'}`,10,144)
-    pdf.text(`Acabamento: ${o.finishing || '-'}`,10,152)
+    pdf.text(`Acabamento: ${o.finishing || '-'}`,10,154)
     pdf.text(`Prioridade: ${o.priority || 'Média'}`,132,128)
-    pdf.text(`Valor: ${money(o.estimated_price)}`,132,136)
+    pdf.text(`Valor total: ${money(o.estimated_price)}`,132,136)
 
-    pdf.text('Observações:',10,164)
-    pdf.text(pdf.splitTextToSize(o.description || 'Sem observações.',92),10,171)
-
-    await addProjectImageToPdf(pdf,o.project_image_url)
+    await addProjectImageToPdf(pdf,o.approved_art_image_url || o.project_image_url)
 
     pdf.line(10,224,200,224)
 
@@ -269,6 +338,8 @@ export default function Orders(){
           <button className="btn-dark" onClick={load}>{loading?'Atualizando...':'Atualizar'}</button>
         </div>
       </header>
+
+      {msg && <div className="mb-4 rounded-xl border border-gold/30 bg-gold/10 p-4 text-gold">{msg}</div>}
 
       <section className="mb-5 grid gap-4 md:grid-cols-4">
         <article className="card">
@@ -345,21 +416,35 @@ export default function Orders(){
                     <small className="text-zinc-400">{r.service_type}</small><br/>
                     <small className="text-zinc-400">{r.finishing}</small><br/>
                     <small className="text-zinc-500">{r.measures}</small>
+                    {Array.isArray(r.quote_items) && r.quote_items.length > 1 && (
+                      <div className="mt-2 grid gap-1">
+                        {r.quote_items.slice(0,3).map((item:any,index:number)=>(
+                          <small key={index} className="block rounded-lg border border-white/10 bg-black/20 p-1 text-zinc-300">
+                            {index+1}. {item.service_name} • {formatCm(item.width_cm)} x {formatCm(item.height_cm)} • {money(item.estimated_price)}
+                          </small>
+                        ))}
+                      </div>
+                    )}
                   </td>
 
                   <td>
                     <strong>{money(r.estimated_price)}</strong>
                   </td>
 
-                  <td className="min-w-[190px]">
-                    {r.project_image_url && (
+                  <td className="min-w-[220px]">
+                    {(r.approved_art_image_url || r.project_image_url) && (
                       <div className="mb-2">
-                        <a className="btn-gold block text-center" href={r.project_image_url} target="_blank" rel="noreferrer">
-                          Imagem projeto
+                        <a className="btn-gold block text-center" href={r.approved_art_image_url || r.project_image_url} target="_blank" rel="noreferrer">
+                          Arte aprovada
                         </a>
-                        <small className="break-all text-zinc-400">{r.project_image_name || 'Imagem enviada pelo Supabase'}</small>
+                        <small className="break-all text-zinc-400">{r.approved_art_image_name || r.project_image_name || 'Imagem enviada pelo Supabase'}</small>
                       </div>
                     )}
+
+                    <label className="btn-dark mb-2 block cursor-pointer text-center">
+                      {(r.approved_art_image_url || r.project_image_url) ? 'Alterar imagem' : 'Adicionar imagem'}
+                      <input className="hidden" type="file" accept="image/*" onChange={e=>{ const f=e.target.files?.[0]; if(f) uploadApprovedImage(r,f); e.currentTarget.value='' }}/>
+                    </label>
 
                     {r.print_file_url ? (
                       <div className="grid gap-2">
