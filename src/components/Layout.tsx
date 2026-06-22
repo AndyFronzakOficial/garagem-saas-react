@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useProfile } from '../lib/useProfile'
@@ -22,73 +21,33 @@ export default function Layout() {
   const nav = useNavigate()
   const { profile } = useProfile()
   const role = profile?.role || 'Administrador'
-  const [menuOpen,setMenuOpen] = useState(()=>localStorage.getItem('garagem_menu_open') !== 'false')
-  const [showSplash,setShowSplash] = useState(()=>sessionStorage.getItem('garagem_splash_done') !== 'true')
-
-  useEffect(()=>{
-    localStorage.setItem('garagem_menu_open', String(menuOpen))
-  },[menuOpen])
-
-  useEffect(()=>{
-    if(!showSplash) return
-    const timer = window.setTimeout(()=>{
-      sessionStorage.setItem('garagem_splash_done','true')
-      setShowSplash(false)
-    },5000)
-    return () => window.clearTimeout(timer)
-  },[showSplash])
 
   async function sair() {
-    sessionStorage.removeItem('garagem_splash_done')
     await supabase.auth.signOut()
     nav('/login')
   }
 
   return (
     <div className="min-h-screen lg:flex">
-      {showSplash && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black">
-          <div className="text-center">
-            <img src="/logo.png" alt="Garagem Comunicação Visual" className="mx-auto max-h-44 max-w-[82vw] object-contain" />
-            <div className="mt-8 h-2 w-64 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full animate-[splashBar_5s_linear_forwards] rounded-full bg-gold"></div>
-            </div>
-          </div>
+      <aside className="border-white/10 bg-black/55 p-4 lg:fixed lg:inset-y-0 lg:w-72 lg:border-r lg:p-6 lg:overflow-y-auto">
+        <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-black/90 px-4 pb-4 pt-4 backdrop-blur lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-6">
+          <img src="/logo.png" alt="Garagem Comunicação Visual" className="logo-img mb-3 max-h-20 w-full object-contain" onError={e => { e.currentTarget.style.display = 'none' }} />
+          <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-zinc-400">Perfil: <strong className="text-zinc-200">{role}</strong></div>
         </div>
-      )}
 
-      {!menuOpen && (
-        <button onClick={()=>setMenuOpen(true)} className="fixed left-3 top-3 z-50 rounded-xl border border-white/10 bg-black/80 px-4 py-3 font-bold text-gold shadow-lg backdrop-blur">
-          ☰ Menu
-        </button>
-      )}
+        <nav className="mt-4 flex gap-2 overflow-x-auto pb-2 lg:grid lg:overflow-x-visible lg:pb-0">
+          {links.filter(l=>l.roles.includes(role)).map(({to,label}) => (
+            <NavLink key={to} to={to} className={({ isActive }) => `whitespace-nowrap rounded-xl px-3 py-3 font-semibold transition ${isActive ? 'bg-gold/10 text-gold' : 'text-zinc-300 hover:bg-white/5'}`}>
+              {label}
+            </NavLink>
+          ))}
+          <a className="whitespace-nowrap rounded-xl px-3 py-3 text-zinc-300 hover:bg-white/5" href="/portal-terceiro" target="_blank">↗ Portal Terceiro</a>
+          <a className="whitespace-nowrap rounded-xl px-3 py-3 text-zinc-300 hover:bg-white/5" href="/orcamento-rapido" target="_blank">↗ Orçamento Público</a>
+        </nav>
 
-      {menuOpen && (
-        <aside className="border-white/10 bg-black/55 p-4 lg:fixed lg:inset-y-0 lg:w-72 lg:border-r lg:p-6 lg:overflow-y-auto">
-          <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-black/90 px-4 pb-4 pt-4 backdrop-blur lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-6">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <img src="/logo.png" alt="Garagem Comunicação Visual" className="logo-img max-h-20 w-full object-contain" onError={e => { e.currentTarget.style.display = 'none' }} />
-              <button onClick={()=>setMenuOpen(false)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-zinc-200 hover:bg-white/10" title="Ocultar menu">×</button>
-            </div>
-            <div className="text-3xl font-black text-gold">Garagem</div>
-            <div className="text-sm text-zinc-400">Comunicação Visual</div>
-            <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-zinc-400">Perfil: <strong className="text-zinc-200">{role}</strong></div>
-          </div>
-
-          <nav className="mt-4 flex gap-2 overflow-x-auto pb-2 lg:grid lg:overflow-x-visible lg:pb-0">
-            {links.filter(l=>l.roles.includes(role)).map(({to,label}) => (
-              <NavLink key={to} to={to} className={({ isActive }) => `whitespace-nowrap rounded-xl px-3 py-3 font-semibold transition ${isActive ? 'bg-gold/10 text-gold' : 'text-zinc-300 hover:bg-white/5'}`}>
-                {label}
-              </NavLink>
-            ))}
-            <a className="whitespace-nowrap rounded-xl px-3 py-3 text-zinc-300 hover:bg-white/5" href="/portal-terceiro" target="_blank">↗ Portal Terceiro</a>
-            <a className="whitespace-nowrap rounded-xl px-3 py-3 text-zinc-300 hover:bg-white/5" href="/orcamento-rapido" target="_blank">↗ Orçamento Público</a>
-          </nav>
-
-          <button onClick={sair} className="btn-dark mt-4 w-full lg:mt-8">Sair</button>
-        </aside>
-      )}
-      <main className={`p-4 transition-all lg:p-8 ${menuOpen ? 'lg:ml-72 lg:w-[calc(100%-18rem)]' : 'lg:ml-0 lg:w-full pt-20 lg:pt-8'}`}><Outlet /></main>
+        <button onClick={sair} className="btn-dark mt-4 w-full lg:mt-8">Sair</button>
+      </aside>
+      <main className="p-4 lg:ml-72 lg:w-[calc(100%-18rem)] lg:p-8"><Outlet /></main>
     </div>
   )
 }
