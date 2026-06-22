@@ -29,7 +29,7 @@ function statusClass(s:string){
 
 async function imageToDataURL(url:string){
   try{
-    const res = await fetch(url)
+    const res = await fetch(url,{mode:'cors'})
     const blob = await res.blob()
     return await new Promise<string>((resolve,reject)=>{
       const reader = new FileReader()
@@ -40,6 +40,39 @@ async function imageToDataURL(url:string){
   }catch{
     return ''
   }
+}
+
+function imageSize(dataUrl:string){
+  return new Promise<{width:number,height:number}>((resolve,reject)=>{
+    const img = new Image()
+    img.onload = () => resolve({width:img.width,height:img.height})
+    img.onerror = reject
+    img.src = dataUrl
+  })
+}
+
+async function addProjectImageToPdf(pdf:jsPDF, imageUrl?:string|null){
+  if(!imageUrl) return
+
+  const dataUrl = await imageToDataURL(imageUrl)
+  if(!dataUrl) return
+
+  try{
+    const size = await imageSize(dataUrl)
+    const maxW = 92
+    const maxH = 58
+    const ratio = Math.min(maxW / size.width, maxH / size.height)
+    const w = size.width * ratio
+    const h = size.height * ratio
+    const x = 108 + ((maxW - w) / 2)
+    const y = 163 + ((maxH - h) / 2)
+
+    pdf.setFontSize(11)
+    pdf.text('IMAGEM DO PROJETO',108,158)
+    pdf.setDrawColor(220,220,220)
+    pdf.roundedRect(108,161,maxW,maxH,2,2)
+    pdf.addImage(dataUrl, x, y, w, h)
+  }catch{}
 }
 
 export default function Orders(){
@@ -181,21 +214,23 @@ export default function Orders(){
     pdf.text(`Valor: ${money(o.estimated_price)}`,132,136)
 
     pdf.text('Observações:',10,164)
-    pdf.text(pdf.splitTextToSize(o.description || 'Sem observações.',185),10,171)
+    pdf.text(pdf.splitTextToSize(o.description || 'Sem observações.',92),10,171)
 
-    pdf.line(10,194,200,194)
+    await addProjectImageToPdf(pdf,o.project_image_url)
+
+    pdf.line(10,224,200,224)
 
     pdf.setFontSize(11)
-    pdf.text('RESPONSÁVEIS',10,204)
+    pdf.text('RESPONSÁVEIS',10,234)
     pdf.setFontSize(9)
-    pdf.text(`Designer: ${o.designer_responsible || '-'}`,10,214)
-    pdf.text(`Impressor: ${o.printer_responsible || '-'}`,95,214)
+    pdf.text(`Designer: ${o.designer_responsible || '-'}`,10,244)
+    pdf.text(`Impressor: ${o.printer_responsible || '-'}`,95,244)
 
     if(o.print_file_url){
       pdf.setFontSize(11)
-      pdf.text('ARQUIVO ANEXO',10,228)
+      pdf.text('ARQUIVO ANEXO',10,255)
       pdf.setFontSize(9)
-      pdf.textWithLink(o.drive_file_name || 'Abrir arquivo enviado',10,238,{url:o.print_file_url})
+      pdf.textWithLink(o.drive_file_name || 'Abrir arquivo enviado',10,264,{url:o.print_file_url})
     }
 
     if(!production){
@@ -317,6 +352,15 @@ export default function Orders(){
                   </td>
 
                   <td className="min-w-[190px]">
+                    {r.project_image_url && (
+                      <div className="mb-2">
+                        <a className="btn-gold block text-center" href={r.project_image_url} target="_blank" rel="noreferrer">
+                          Imagem projeto
+                        </a>
+                        <small className="break-all text-zinc-400">{r.project_image_name || 'Imagem enviada pelo Supabase'}</small>
+                      </div>
+                    )}
+
                     {r.print_file_url ? (
                       <div className="grid gap-2">
                         <a className="btn-gold text-center" href={r.print_file_url} target="_blank" rel="noreferrer">

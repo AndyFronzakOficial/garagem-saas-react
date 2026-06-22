@@ -7,6 +7,7 @@ export default function PublicQuote(){
   const [services,setServices]=useState<any[]>([])
   const [sent,setSent]=useState<any>(null)
   const [file,setFile]=useState<File|null>(null)
+  const [projectImage,setProjectImage]=useState<File|null>(null)
   const [errorMsg,setErrorMsg]=useState('')
   const [loading,setLoading]=useState(false)
 
@@ -39,6 +40,39 @@ export default function PublicQuote(){
   const manualTotal=brNumber(f.manual_price)
   const total=manualTotal > 0 ? manualTotal : autoTotal
 
+  async function uploadProjectImage(file:File, code:string){
+    if(!file.type.startsWith('image/')){
+      throw new Error('A imagem do projeto precisa ser um arquivo de imagem.')
+    }
+
+    if(file.size > 50 * 1024 * 1024){
+      throw new Error('A imagem do projeto precisa ter no máximo 50MB.')
+    }
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const safeCode = code.replace(/[^a-zA-Z0-9_-]/g,'-')
+    const path = `public-quotes/${safeCode}/imagem-projeto-${Date.now()}.${ext}`
+
+    const { error } = await supabase.storage
+      .from('os-files')
+      .upload(path,file,{
+        upsert:false,
+        contentType:file.type || 'image/jpeg'
+      })
+
+    if(error){
+      throw new Error('Erro ao enviar imagem do projeto para o Supabase: ' + error.message)
+    }
+
+    const { data } = supabase.storage.from('os-files').getPublicUrl(path)
+
+    return {
+      url:data.publicUrl,
+      name:file.name,
+      path
+    }
+  }
+
   async function save(e:React.FormEvent){
     e.preventDefault()
     setErrorMsg('')
@@ -54,7 +88,17 @@ export default function PublicQuote(){
       let driveFileId:string|null = null
       let driveFileName:string|null = null
       let driveFolderId:string|null = null
+      let projectImageUrl:string|null = null
+      let projectImageName:string|null = null
+      let projectImagePath:string|null = null
       const code=quoteNumber()
+
+      if(projectImage){
+        const uploadedImage = await uploadProjectImage(projectImage,code)
+        projectImageUrl = uploadedImage.url
+        projectImageName = uploadedImage.name
+        projectImagePath = uploadedImage.path
+      }
 
       if(file){
         if(!isGoogleDriveConfigured()){
@@ -100,7 +144,10 @@ export default function PublicQuote(){
         file_url:fileUrl,
         drive_file_id:driveFileId,
         drive_file_name:driveFileName,
-        drive_folder_id:driveFolderId
+        drive_folder_id:driveFolderId,
+        project_image_url:projectImageUrl,
+        project_image_name:projectImageName,
+        project_image_path:projectImagePath
       })
 
       if(error){
@@ -108,7 +155,7 @@ export default function PublicQuote(){
         return
       }
 
-      setSent({code,total,fileUrl,project_name:f.project_name})
+      setSent({code,total,fileUrl,project_name:f.project_name,projectImageUrl})
     }finally{
       setLoading(false)
     }
@@ -123,6 +170,7 @@ export default function PublicQuote(){
         <p className="text-zinc-400">Código: {sent.code}</p>
         <div className="price-preview mt-4"><strong>{money(sent.total)}</strong></div>
         {sent.fileUrl && <a href={sent.fileUrl} target="_blank" className="mt-4 block text-gold">Arquivo enviado para o Drive</a>}
+        {sent.projectImageUrl && <a href={sent.projectImageUrl} target="_blank" className="mt-2 block text-gold">Imagem do projeto enviada</a>}
       </div>
     </div>
   )
@@ -171,6 +219,18 @@ export default function PublicQuote(){
             />
 
             <textarea className="input full" placeholder="Descrição" value={f.description} onChange={e=>setF({...f,description:e.target.value})}/>
+
+            <div className="full">
+              <label className="mb-2 block text-sm text-zinc-400">Imagem do projeto para aparecer no PDF da OS</label>
+              <input
+                className="input"
+                type="file"
+                accept="image/*"
+                onChange={e=>setProjectImage(e.target.files?.[0]||null)}
+              />
+              <p className="mt-2 text-xs text-zinc-500">Opcional. Envio direto pelo Supabase, limite de 50MB.</p>
+              {projectImage && <p className="mt-2 text-sm text-zinc-400">Imagem selecionada: {projectImage.name}</p>}
+            </div>
 
             <div className="full">
               <label className="mb-2 block text-sm text-zinc-400">Arquivo da arte</label>

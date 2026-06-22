@@ -126,6 +126,9 @@ export default function Leads(){
           drive_file_id:r.drive_file_id || null,
           drive_file_name:r.drive_file_name || null,
           drive_folder_id:r.drive_folder_id || null,
+          project_image_url:r.project_image_url || null,
+          project_image_name:r.project_image_name || null,
+          project_image_path:r.project_image_path || null,
           source:'Orçamento Público',
           status:'Orçamento',
           priority:'Média',
@@ -233,6 +236,16 @@ export default function Leads(){
                 </td>
 
                 <td>
+                  {r.project_image_url && (
+                    <a
+                      className="btn-gold mb-2 inline-block"
+                      href={r.project_image_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Ver imagem
+                    </a>
+                  )}
                   {(r.file_url || r.print_file_url || r.drive_link) ? (
                     <a
                       className="btn-dark inline-block"
