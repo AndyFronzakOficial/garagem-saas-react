@@ -29,6 +29,52 @@ function getItems(o:any){
 }
 function formatCm(v:any){ return `${Number(v || 0).toFixed(0)}cm` }
 
+
+async function imageToDataURL(url:string){
+  try{
+    const res = await fetch(url,{mode:'cors'})
+    const blob = await res.blob()
+    return await new Promise<string>((resolve,reject)=>{
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(String(reader.result))
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  }catch{
+    return ''
+  }
+}
+
+function imageSize(dataUrl:string){
+  return new Promise<{width:number,height:number}>((resolve,reject)=>{
+    const img = new Image()
+    img.onload = () => resolve({width:img.width,height:img.height})
+    img.onerror = reject
+    img.src = dataUrl
+  })
+}
+
+async function addProjectImageToPdf(pdf:jsPDF, imageUrl?:string|null){
+  if(!imageUrl) return
+  const dataUrl = await imageToDataURL(imageUrl)
+  if(!dataUrl) return
+  try{
+    const size = await imageSize(dataUrl)
+    const maxW = 92
+    const maxH = 58
+    const ratio = Math.min(maxW / size.width, maxH / size.height)
+    const w = size.width * ratio
+    const h = size.height * ratio
+    const x = 108 + ((maxW - w) / 2)
+    const y = 163 + ((maxH - h) / 2)
+    pdf.setFontSize(11)
+    pdf.text('ARTE APROVADA / IMAGEM DO PROJETO',108,158)
+    pdf.setDrawColor(220,220,220)
+    pdf.roundedRect(108,161,maxW,maxH,2,2)
+    pdf.addImage(dataUrl, x, y, w, h)
+  }catch{}
+}
+
 export default function CustomerHistory(){
   const [clients,setClients]=useState<any[]>([])
   const [orders,setOrders]=useState<any[]>([])
@@ -71,36 +117,128 @@ export default function CustomerHistory(){
     pdf.save(`contrato-${order.os_number || 'cliente'}.pdf`)
   }
 
-  function downloadServiceOrder(order:any){
+  async function downloadServiceOrder(order:any){
+    const pdf = new jsPDF('p','mm','a4')
+    const cfg = company || {}
     const client = order.clients || selectedClient || {}
-    const items = getItems(order)
-    const pdf=new jsPDF('p','mm','a4')
-    pdf.setFontSize(18); pdf.text('ORDEM DE SERVIÇO',12,18)
-    pdf.setFontSize(10)
-    pdf.text(`Empresa: ${company?.name || 'Garagem ERP'}`,12,30)
-    pdf.text(`Cliente: ${client?.name || client?.company || '-'}`,12,38)
-    pdf.text(`Telefone: ${client?.phone || '-'}`,12,46)
-    pdf.text(`OS: ${order.os_number || '-'}`,118,38)
-    pdf.text(`Data: ${brDate(order.created_at)}`,118,46)
-    pdf.text(`Status: ${order.status || '-'}`,118,54)
-    let y=70
-    pdf.setFontSize(12); pdf.text('Serviços',12,y); y+=8
-    pdf.setFontSize(9)
-    items.forEach((item:any,idx:number)=>{
-      if(y>258){ pdf.addPage(); y=18 }
-      const serviceName = item.service_name || item.name || order.service || 'Serviço'
-      const line = `${idx+1}. ${serviceName} · ${formatCm(item.width_cm)} x ${formatCm(item.height_cm)} · Qtd: ${item.quantity || 1} · ${money(item.estimated_price || item.value || 0)}`
-      pdf.text(pdf.splitTextToSize(line,185),12,y); y+=8
-      const obs = `Obs: ${item.observation || item.obs || 'Sem observação'} · Acabamento: ${item.finishing || item.finish || order.finishing || 'Sem acabamento'}`
-      pdf.text(pdf.splitTextToSize(obs,185),16,y); y+=10
-    })
-    pdf.setFontSize(12); pdf.text(`Total: ${money(order.estimated_price)}`,12,y+4)
-    if(order.art_approval_signature){
-      pdf.setFontSize(10)
-      pdf.text(`Assinado pelo cliente em: ${brDateTime(order.art_approved_at)}`,12,262)
-      try{ pdf.addImage(order.art_approval_signature,'PNG',118,246,60,25) }catch{}
+
+    pdf.setFillColor(18,18,18)
+    pdf.rect(0,0,210,26,'F')
+
+    const logoUrl = cfg.logo_url || '/logo.png'
+    const logo = await imageToDataURL(logoUrl)
+
+    if(logo){
+      try{ pdf.addImage(logo,'PNG',10,6,48,15) }catch{}
+    }else{
+      pdf.setTextColor(244,197,66)
+      pdf.setFontSize(16)
+      pdf.text(cfg.company_name || cfg.name || 'Garagem Comunicação Visual',10,15)
     }
-    pdf.save(`ordem-servico-${order.os_number || 'cliente'}.pdf`)
+
+    pdf.setTextColor(255,255,255)
+    pdf.setFontSize(14)
+    pdf.text('ORDEM DE SERVIÇO',130,11)
+    pdf.setFontSize(9)
+    pdf.text(order.os_number || '-',130,18)
+
+    pdf.setTextColor(0,0,0)
+    pdf.setFontSize(8)
+    pdf.text(cfg.company_name || cfg.name || 'Garagem Comunicação Visual',10,34)
+    pdf.text(`CNPJ: ${cfg.cnpj || '36.685.414/0001-49'}`,10,39)
+    pdf.text(cfg.address || 'R. Califórnia, 287 - Guaraituba, Colombo - PR',10,44)
+    pdf.text(`Telefone: ${cfg.phone || '(41) 99267-5409'}`,10,49)
+
+    pdf.setDrawColor(220,220,220)
+    pdf.line(10,56,200,56)
+
+    pdf.setFontSize(11)
+    pdf.text('DADOS DO CLIENTE',10,66)
+
+    pdf.setFontSize(9)
+    pdf.text(`Cliente: ${client?.name || '-'}`,10,76)
+    pdf.text(`Empresa: ${client?.company || '-'}`,10,83)
+    pdf.text(`Telefone: ${client?.phone || '-'}`,10,90)
+    pdf.text(`Endereço: ${client?.address || '-'}`,10,97)
+
+    pdf.text(`Emissão: ${new Date().toLocaleDateString('pt-BR')}`,132,76)
+    pdf.text(`Previsão: ${brDate(order.due_date)}`,132,83)
+    pdf.text(`Entrega: ${brDate(order.delivered_at)}`,132,90)
+    pdf.text(`Status: ${order.status || '-'}`,132,97)
+
+    pdf.line(10,106,200,106)
+
+    pdf.setFontSize(11)
+    pdf.text('SERVIÇOS DA ORDEM',10,116)
+
+    const items = getItems(order)
+    let y = 127
+    let shownItems = 0
+    pdf.setFontSize(8.5)
+    items.forEach((item:any,index:number)=>{
+      if(y > 148) return
+      shownItems += 1
+      pdf.setFont('helvetica','bold')
+      pdf.text(`${index+1}. ${item.service_name || item.name || 'Serviço'}`,10,y)
+      pdf.setFont('helvetica','normal')
+      const qty = item.quantity || 1
+      const area = Number(item.area_m2 || 0)
+      pdf.text(`Medidas: ${formatCm(item.width_cm)} x ${formatCm(item.height_cm)} | Qtd: ${qty}${area ? ` | Área: ${area.toFixed(2)} m²` : ''}`,10,y+5)
+      pdf.text(`Valor: ${money(item.estimated_price || item.value || 0)}`,100,y+5)
+      const obs = item.observation || item.obs || (index === 0 ? order.description : '') || 'Sem observação.'
+      const finishing = item.finishing || item.finish || order.finishing || 'Sem acabamento'
+      const obsLines = pdf.splitTextToSize(`Obs: ${obs} | Acabamento: ${finishing}`,92)
+      pdf.text(obsLines,10,y+10)
+      y += 14 + (obsLines.length * 4)
+    })
+    if(items.length > shownItems){
+      pdf.setFontSize(8)
+      pdf.text(`+ ${items.length - shownItems} serviço(s) no orçamento completo.`,10,158)
+    }
+
+    pdf.setFontSize(9)
+    pdf.text(`Prioridade: ${order.priority || 'Média'}`,132,128)
+    pdf.text(`Valor total: ${money(order.estimated_price)}`,132,136)
+    pdf.text(`Acabamento: ${order.finishing || '-'}`,132,144)
+
+    await addProjectImageToPdf(pdf,order.approved_art_image_url || order.project_image_url)
+
+    pdf.line(10,224,200,224)
+
+    pdf.setFontSize(11)
+    pdf.text('RESPONSÁVEIS',10,234)
+    pdf.setFontSize(9)
+    pdf.text(`Designer: ${order.designer_responsible || '-'}`,10,244)
+    pdf.text(`Impressor: ${order.printer_responsible || '-'}`,95,244)
+
+    if(order.print_file_url){
+      pdf.setFontSize(11)
+      pdf.text('ARQUIVO ANEXO',10,255)
+      pdf.setFontSize(9)
+      pdf.textWithLink(order.drive_file_name || 'Abrir arquivo enviado',10,264,{url:order.print_file_url})
+    }
+
+    if(order.art_approval_signature){
+      try{ pdf.addImage(order.art_approval_signature,'PNG',25,249,58,20) }catch{}
+      pdf.setFontSize(7.5)
+      pdf.text(`Assinado em: ${brDateTime(order.art_approved_at)}`,22,274)
+    }else{
+      pdf.line(20,267,90,267)
+      pdf.setFontSize(9)
+      pdf.text('Assinatura do Cliente',33,274)
+    }
+    pdf.line(120,267,190,267)
+    pdf.setFontSize(9)
+    pdf.text('Responsável Garagem',134,274)
+
+    pdf.setFillColor(18,18,18)
+    pdf.rect(0,286,210,11,'F')
+    pdf.setTextColor(255,255,255)
+    pdf.setFontSize(8)
+    pdf.text(cfg.pdf_footer || cfg.company_name || cfg.name || 'Garagem Comunicação Visual',10,293)
+    pdf.text(cfg.whatsapp || cfg.phone || '(41) 99267-5409',165,293)
+
+    pdf.save(`os-${order.os_number || 'ordem'}.pdf`)
   }
 
   const list = clients.filter(c=>[c.name,c.company,c.phone,c.email].join(' ').toLowerCase().includes(search.toLowerCase()))
