@@ -219,6 +219,46 @@ export default function Orders(){
     }
   }
 
+
+
+  async function uploadInvoice(order:any, file:File){
+    setMsg('')
+
+    try{
+      const allowed = ['application/pdf','text/xml','application/xml','image/png','image/jpeg','image/webp']
+      const lowerName = file.name.toLowerCase()
+      const validExt = lowerName.endsWith('.pdf') || lowerName.endsWith('.xml') || lowerName.endsWith('.png') || lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.webp')
+      if(!allowed.includes(file.type) && !validExt) throw new Error('Envie a nota fiscal em PDF, XML ou imagem.')
+      if(file.size > 50 * 1024 * 1024) throw new Error('A nota fiscal precisa ter no máximo 50MB.')
+
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf'
+      const safeNumber = String(order.os_number || order.id).replace(/[^a-zA-Z0-9_-]/g,'-')
+      const path = `service-orders/${safeNumber}/nota-fiscal-${Date.now()}.${ext}`
+
+      const { error } = await supabase.storage
+        .from('os-files')
+        .upload(path,file,{ upsert:false, contentType:file.type || 'application/octet-stream' })
+
+      if(error) throw new Error('Erro ao enviar nota fiscal para o Supabase: ' + error.message)
+
+      const { data } = supabase.storage.from('os-files').getPublicUrl(path)
+
+      const updated = await supabase.from('service_orders').update({
+        invoice_file_url:data.publicUrl,
+        invoice_file_name:file.name,
+        invoice_file_path:path,
+        invoice_uploaded_at:new Date().toISOString()
+      }).eq('id',order.id)
+
+      if(updated.error) throw new Error('Nota enviada, mas não consegui salvar na OS: ' + updated.error.message)
+
+      setMsg('Nota fiscal anexada na OS. O cliente já consegue baixar pelo Portal Terceiro.')
+      load()
+    }catch(err:any){
+      setMsg(err.message || 'Erro ao enviar nota fiscal.')
+    }
+  }
+
   const filtered = useMemo(()=>{
     const q = search.toLowerCase().trim()
     const filteredRows = rows.filter(r=>{
@@ -453,10 +493,10 @@ export default function Orders(){
 
       <div className="card p-0">
         <div ref={topScrollRef} onScroll={()=>syncHorizontalScroll('top')} className="overflow-x-auto border-b border-white/10 px-5 pt-4 pb-2">
-          <div className="h-1 min-w-[1450px]"></div>
+          <div className="h-1 min-w-[1580px]"></div>
         </div>
         <div ref={tableScrollRef} onScroll={()=>syncHorizontalScroll('table')} className="overflow-x-auto px-5 pb-5 pt-2">
-          <table className="min-w-[1450px]">
+          <table className="min-w-[1580px]">
             <thead>
               <tr className="bg-black/30">
                 <th><input type="checkbox" checked={filtered.length>0 && selectedIds.length===filtered.length} onChange={e=>toggleAllVisible(e.target.checked)}/></th>
@@ -536,6 +576,20 @@ export default function Orders(){
                     ) : (
                       <span className="text-zinc-500">Sem arquivo</span>
                     )}
+
+                    <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-2">
+                      <strong className="mb-2 block text-xs text-zinc-300">Nota fiscal</strong>
+                      {r.invoice_file_url ? (
+                        <div className="grid gap-2">
+                          <a className="btn-gold text-center" href={r.invoice_file_url} target="_blank" rel="noreferrer">Baixar NF</a>
+                          <small className="break-all text-zinc-400">{r.invoice_file_name || 'Nota fiscal anexada'}</small>
+                        </div>
+                      ) : <small className="text-zinc-500">Nenhuma NF anexada.</small>}
+                      <label className="btn-dark mt-2 block cursor-pointer text-center">
+                        {r.invoice_file_url ? 'Alterar nota fiscal' : 'Emitir nota fiscal'}
+                        <input className="hidden" type="file" accept=".pdf,.xml,image/*" onChange={e=>{ const f=e.target.files?.[0]; if(f) uploadInvoice(r,f); e.currentTarget.value='' }}/>
+                      </label>
+                    </div>
                   </td>
 
                   <td className="min-w-[210px]">
