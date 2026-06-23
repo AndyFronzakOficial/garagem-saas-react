@@ -47,7 +47,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="min-h-screen bg-app lg:flex">
       {showSplash && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black">
           <div className="text-center">
@@ -60,31 +60,29 @@ export default function Layout() {
       )}
 
       {!menuOpen && (
-        <button onClick={()=>setMenuOpen(true)} className="fixed left-3 top-3 z-50 rounded-xl border border-white/10 bg-black/80 px-4 py-3 font-bold text-gold shadow-lg backdrop-blur">
+        <button onClick={()=>setMenuOpen(true)} className="fixed left-3 top-3 z-50 rounded-2xl border border-gold/30 bg-black/85 px-4 py-3 font-black text-gold shadow-[0_18px_50px_rgba(0,0,0,.55)] backdrop-blur">
           ☰ Menu
         </button>
       )}
 
       {menuOpen && (
-        <aside className="border-white/10 bg-black/55 p-4 lg:fixed lg:inset-y-0 lg:w-72 lg:border-r lg:p-6 lg:overflow-y-auto">
-          <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-black/90 px-4 pb-4 pt-4 backdrop-blur lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-6">
+        <aside className="sidebar-shell border-white/10 p-4 lg:fixed lg:inset-y-0 lg:w-72 lg:border-r lg:p-6 lg:overflow-y-auto">
+          <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-[#080908]/95 px-4 pb-4 pt-4 backdrop-blur lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-6">
             <div className="mb-3 flex items-start justify-between gap-2">
-              <img src="/logo.png" alt="Garagem Comunicação Visual" className="logo-img max-h-20 w-full object-contain" onError={e => { e.currentTarget.style.display = 'none' }} />
+              <img src="/logo.png" alt="Garagem Comunicação Visual" className="logo-img max-h-24 w-full object-contain" onError={e => { e.currentTarget.style.display = 'none' }} />
               <button onClick={()=>setMenuOpen(false)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-zinc-200 hover:bg-white/10" title="Ocultar menu">×</button>
             </div>
-            <div className="text-3xl font-black text-gold">Garagem</div>
-            <div className="text-sm text-zinc-400">Comunicação Visual</div>
-            <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-zinc-400">Perfil: <strong className="text-zinc-200">{role}</strong></div>
+            <div className="mt-3 rounded-xl border border-gold/20 bg-black/30 p-3 text-xs text-zinc-400">Perfil: <strong className="text-zinc-100">{role}</strong></div>
           </div>
 
           <nav className="mt-4 flex gap-2 overflow-x-auto pb-2 lg:grid lg:overflow-x-visible lg:pb-0">
             {links.filter(l=>l.roles.includes(role)).map(({to,label}) => (
-              <NavLink key={to} to={to} className={({ isActive }) => `whitespace-nowrap rounded-xl px-3 py-3 font-semibold transition ${isActive ? 'bg-gold/10 text-gold' : 'text-zinc-300 hover:bg-white/5'}`}>
+              <NavLink key={to} to={to} className={({ isActive }) => `nav-item whitespace-nowrap rounded-xl px-3 py-3 font-semibold transition ${isActive ? 'nav-active' : 'text-zinc-300 hover:bg-white/5 hover:text-white'}`}>
                 {label}
               </NavLink>
             ))}
-            <a className="whitespace-nowrap rounded-xl px-3 py-3 text-zinc-300 hover:bg-white/5" href="/portal-terceiro" target="_blank">↗ Portal Terceiro</a>
-            <a className="whitespace-nowrap rounded-xl px-3 py-3 text-zinc-300 hover:bg-white/5" href="/orcamento-rapido" target="_blank">↗ PDV Público</a>
+            <a className="nav-item whitespace-nowrap rounded-xl px-3 py-3 text-zinc-300 hover:bg-white/5 hover:text-white" href="/portal-terceiro" target="_blank">↗ Portal Terceiro</a>
+            <a className="nav-item whitespace-nowrap rounded-xl px-3 py-3 text-zinc-300 hover:bg-white/5 hover:text-white" href="/orcamento-rapido" target="_blank">↗ PDV Público</a>
           </nav>
 
           <button onClick={sair} className="btn-dark mt-4 w-full lg:mt-8">Sair</button>
