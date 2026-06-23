@@ -25,6 +25,10 @@ const newItem = ():QuoteItem => ({
 
 export default function PublicQuote(){
   const [services,setServices]=useState<any[]>([])
+  const [clients,setClients]=useState<any[]>([])
+  const [clientMode,setClientMode]=useState<'existing'|'new'>('existing')
+  const [clientSearch,setClientSearch]=useState('')
+  const [selectedClientId,setSelectedClientId]=useState('')
   const [sent,setSent]=useState<any>(null)
   const [file,setFile]=useState<File|null>(null)
   const [projectImage,setProjectImage]=useState<File|null>(null)
@@ -54,7 +58,46 @@ export default function PublicQuote(){
       if(error) setErrorMsg('Erro ao carregar serviços: ' + error.message)
       setServices(data||[])
     })
+    supabase.from('clients').select('*').order('name').then(({data})=>setClients(data||[]))
   },[])
+
+  const filteredClients = useMemo(()=>{
+    const q = clientSearch.toLowerCase().trim()
+    if(!q) return clients.slice(0,8)
+    return clients.filter(c=>[c.name,c.company,c.phone,c.email].join(' ').toLowerCase().includes(q)).slice(0,8)
+  },[clients,clientSearch])
+
+  function selectClient(c:any){
+    setSelectedClientId(c.id)
+    setClientSearch([c.name,c.company,c.phone].filter(Boolean).join(' · '))
+    setF(prev=>({
+      ...prev,
+      client_name:c.name || prev.client_name,
+      company:c.company || prev.company,
+      phone:c.phone || prev.phone,
+      email:c.email || prev.email,
+      address:c.address || prev.address
+    }))
+  }
+
+  async function getOrCreateClientId(){
+    if(clientMode === 'existing' && selectedClientId) return selectedClientId
+    if(clientMode === 'existing' && !selectedClientId && f.phone){
+      const found = clients.find(c=>String(c.phone || '').replace(/\D/g,'') === String(f.phone || '').replace(/\D/g,''))
+      if(found) return found.id
+    }
+    const { data, error } = await supabase.from('clients').insert({
+      name:f.client_name || f.company || 'Cliente sem nome',
+      company:f.company || null,
+      phone:f.phone || '',
+      email:f.email || null,
+      address:f.address || null
+    }).select('*').single()
+    if(error) throw new Error('Erro ao cadastrar cliente no PDV: ' + error.message)
+    setClients(prev=>[data,...prev])
+    setSelectedClientId(data.id)
+    return data.id
+  }
 
   function serviceById(id:string){
     return services.find(s=>s.id===id)
@@ -147,6 +190,8 @@ export default function PublicQuote(){
         projectImagePath = uploadedImage.path
       }
 
+      const clientId = await getOrCreateClientId()
+
       if(file){
         if(!isGoogleDriveConfigured()){
           setErrorMsg('Google Drive não configurado. Configure VITE_GOOGLE_CLIENT_ID no .env.')
@@ -164,6 +209,7 @@ export default function PublicQuote(){
       const first = normalizedItems[0]
       const {error}=await supabase.from('public_quotes').insert({
         quote_number:code,
+        client_id:clientId,
         client_name:f.client_name,
         company:f.company||null,
         phone:f.phone,
@@ -244,6 +290,30 @@ export default function PublicQuote(){
           {errorMsg && <div className="mt-4 rounded-xl border border-red-500/30 bg-red-950/60 p-4 text-red-100">{errorMsg}</div>}
 
           <form onSubmit={save} className="client-grid mt-6">
+            <div className="full portal-inner-card p-4">
+              <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <strong className="text-strong">Cliente do PDV</strong>
+                  <p className="text-sm muted-text">Selecione um cliente já cadastrado para alimentar o histórico dele ou cadastre um novo por aqui.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" className={clientMode==='existing'?'btn-gold':'btn-dark'} onClick={()=>setClientMode('existing')}>Cliente existente</button>
+                  <button type="button" className={clientMode==='new'?'btn-gold':'btn-dark'} onClick={()=>{setClientMode('new'); setSelectedClientId(''); setClientSearch('')}}>Novo cliente</button>
+                </div>
+              </div>
+
+              {clientMode === 'existing' && <div className="grid gap-3">
+                <input className="input" placeholder="Buscar por nome, empresa, telefone ou e-mail..." value={clientSearch} onChange={e=>{setClientSearch(e.target.value); setSelectedClientId('')}} />
+                <div className="grid gap-2 md:grid-cols-2">
+                  {filteredClients.map(c=><button type="button" key={c.id} onClick={()=>selectClient(c)} className={`rounded-xl border p-3 text-left transition ${selectedClientId===c.id?'border-gold/50 bg-gold/10':'border-white/10 bg-black/10 hover:bg-gold/10'}`}>
+                    <strong>{c.name || c.company}</strong><br/>
+                    <small className="muted-text">{c.company || 'Sem empresa'} · {c.phone || 'Sem telefone'}</small>
+                  </button>)}
+                </div>
+                {selectedClientId && <a className="btn-dark w-fit" href={`/historico-clientes`} target="_blank" rel="noreferrer">Ver histórico do cliente</a>}
+              </div>}
+            </div>
+
             <input className="input" placeholder="Nome" value={f.client_name} onChange={e=>setF({...f,client_name:e.target.value})} required/>
             <input className="input" placeholder="Empresa" value={f.company} onChange={e=>setF({...f,company:e.target.value})}/>
             <input className="input" placeholder="WhatsApp" value={f.phone} onChange={e=>setF({...f,phone:e.target.value})} required/>

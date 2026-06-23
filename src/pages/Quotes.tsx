@@ -135,6 +135,7 @@ export default function Quotes(){
   }
 
   async function findOrCreateClient(r:any){
+    if(r.client_id) return r.client_id
     const phone = r.phone || ''
     if(phone){
       const existing = await supabase.from('clients').select('*').eq('phone',phone).maybeSingle()
