@@ -1,35 +1,57 @@
-import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useProfile } from '../lib/useProfile'
 
-const links = [
+const sideLinks = [
   {to:'/', label:'Dashboard', roles:['Administrador','Financeiro','Produção','Vendas','Funcionário']},
   {to:'/clientes', label:'Clientes', roles:['Administrador','Vendas','Financeiro','Orçamento']},
   {to:'/historico-clientes', label:'Histórico do Cliente', roles:['Administrador','Vendas','Financeiro']},
-  {to:'/leads', label:'Novos Leads', roles:['Administrador','Vendas','Orçamento']},
   {to:'/orcamentos', label:'Orçamentos', roles:['Administrador','Vendas','Orçamento','Financeiro']},
   {to:'/ordens', label:'Ordens de Serviço', roles:['Administrador','Produção','Vendas','Funcionário','Orçamento']},
   {to:'/kanban', label:'Kanban', roles:['Administrador','Produção','Funcionário']},
-  {to:'/precos', label:'Preços por m²', roles:['Administrador','Financeiro']},
-  {to:'/financeiro', label:'Financeiro', roles:['Administrador','Financeiro']},
-  {to:'/estoque', label:'Estoque', roles:['Administrador','Produção','Funcionário']},
-  {to:'/entregas', label:'Entrega/Instalação', roles:['Administrador','Produção','Funcionário']},
-  {to:'/usuarios', label:'Usuários', roles:['Administrador']},
-  {to:'/backup', label:'Backup', roles:['Administrador']},
-  {to:'/configuracoes', label:'Configurações', roles:['Administrador']},
+  {to:'/precos', label:'Preço por m²', roles:['Administrador','Financeiro']},
+  {to:'/entregas', label:'Entrega', roles:['Administrador','Produção','Funcionário']},
 ]
+
+const pageTitles: Record<string,string> = {
+  '/':'Dashboard',
+  '/clientes':'Clientes',
+  '/historico-clientes':'Histórico do Cliente',
+  '/leads':'Leads',
+  '/orcamentos':'Orçamentos',
+  '/ordens':'Ordens de Serviço',
+  '/kanban':'Kanban de Produção',
+  '/precos':'Preço por m²',
+  '/financeiro':'Financeiro',
+  '/estoque':'Estoque',
+  '/entregas':'Entrega',
+  '/usuarios':'Usuários',
+  '/backup':'Backup',
+  '/configuracoes':'Configurações',
+}
 
 export default function Layout() {
   const nav = useNavigate()
+  const location = useLocation()
   const { profile } = useProfile()
   const role = profile?.role || 'Administrador'
   const [menuOpen,setMenuOpen] = useState(()=>localStorage.getItem('garagem_menu_open') !== 'false')
+  const [settingsOpen,setSettingsOpen] = useState(false)
+  const [theme,setTheme] = useState(()=>localStorage.getItem('garagem_theme') || 'dark')
   const [showSplash,setShowSplash] = useState(()=>sessionStorage.getItem('garagem_splash_done') !== 'true')
+
+  const pageTitle = useMemo(()=> pageTitles[location.pathname] || 'Garagem', [location.pathname])
 
   useEffect(()=>{
     localStorage.setItem('garagem_menu_open', String(menuOpen))
   },[menuOpen])
+
+  useEffect(()=>{
+    localStorage.setItem('garagem_theme', theme)
+    document.documentElement.classList.toggle('theme-light', theme === 'light')
+    document.documentElement.classList.toggle('theme-dark', theme !== 'light')
+  },[theme])
 
   useEffect(()=>{
     if(!showSplash) return
@@ -40,6 +62,8 @@ export default function Layout() {
     return () => window.clearTimeout(timer)
   },[showSplash])
 
+  useEffect(()=> setSettingsOpen(false), [location.pathname])
+
   async function sair() {
     sessionStorage.removeItem('garagem_splash_done')
     await supabase.auth.signOut()
@@ -47,7 +71,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="min-h-screen bg-app text-app">
       {showSplash && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black">
           <div className="text-center">
@@ -59,38 +83,63 @@ export default function Layout() {
         </div>
       )}
 
-      {!menuOpen && (
-        <button onClick={()=>setMenuOpen(true)} className="fixed left-3 top-3 z-50 rounded-xl border border-white/10 bg-black/80 px-4 py-3 font-bold text-gold shadow-lg backdrop-blur">
-          ☰ Menu
-        </button>
-      )}
+      <header className="topbar fixed inset-x-0 top-0 z-40 flex h-16 items-center gap-3 border-b px-3 shadow-sm backdrop-blur-xl md:px-5">
+        <button onClick={()=>setMenuOpen(v=>!v)} className="icon-btn lg:hidden" title="Abrir menu">☰</button>
+        <button onClick={()=>setMenuOpen(v=>!v)} className="icon-btn hidden lg:inline-flex" title={menuOpen ? 'Ocultar menu' : 'Mostrar menu'}>{menuOpen ? '‹' : '☰'}</button>
 
-      {menuOpen && (
-        <aside className="border-white/10 bg-black/55 p-4 lg:fixed lg:inset-y-0 lg:w-72 lg:border-r lg:p-6 lg:overflow-y-auto">
-          <div className="sticky top-0 z-20 -mx-4 -mt-4 bg-black/90 px-4 pb-4 pt-4 backdrop-blur lg:-mx-6 lg:-mt-6 lg:px-6 lg:pt-6">
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <img src="/logo.png" alt="Garagem Comunicação Visual" className="logo-img max-h-20 w-full object-contain" onError={e => { e.currentTarget.style.display = 'none' }} />
-              <button onClick={()=>setMenuOpen(false)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-zinc-200 hover:bg-white/10" title="Ocultar menu">×</button>
-            </div>
-            <div className="text-3xl font-black text-gold">Garagem</div>
-            <div className="text-sm text-zinc-400">Comunicação Visual</div>
-            <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-zinc-400">Perfil: <strong className="text-zinc-200">{role}</strong></div>
+        <NavLink to="/" className="flex min-w-0 items-center gap-2">
+          <img src="/logo.png" alt="Garagem" className="h-10 w-auto max-w-[150px] object-contain md:max-w-[190px]" />
+        </NavLink>
+
+        <div className="mx-auto hidden max-w-[40vw] truncate text-center text-sm font-extrabold tracking-wide md:block">{pageTitle}</div>
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={()=>setTheme(theme === 'dark' ? 'light' : 'dark')} className="top-action" title="Alterar tema">
+            {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+          </button>
+
+          <div className="relative">
+            <button onClick={()=>setSettingsOpen(v=>!v)} className="top-action">Configuração ▾</button>
+            {settingsOpen && (
+              <div className="dropdown-menu absolute right-0 mt-2 w-60 overflow-hidden rounded-2xl border p-2 shadow-2xl">
+                <NavLink to="/configuracoes" className="dropdown-item">Personalização</NavLink>
+                <NavLink to="/backup" className="dropdown-item">Backup</NavLink>
+                <NavLink to="/usuarios" className="dropdown-item">Usuários</NavLink>
+                <div className="my-1 border-t border-current/10" />
+                <a href="https://garagem-saas-react.vercel.app/configuracoes" className="dropdown-item text-xs" target="_blank">Link configurações</a>
+                <a href="https://garagem-saas-react.vercel.app/backup" className="dropdown-item text-xs" target="_blank">Link backup</a>
+                <a href="https://garagem-saas-react.vercel.app/usuarios" className="dropdown-item text-xs" target="_blank">Link usuários</a>
+              </div>
+            )}
           </div>
 
-          <nav className="mt-4 flex gap-2 overflow-x-auto pb-2 lg:grid lg:overflow-x-visible lg:pb-0">
-            {links.filter(l=>l.roles.includes(role)).map(({to,label}) => (
-              <NavLink key={to} to={to} className={({ isActive }) => `whitespace-nowrap rounded-xl px-3 py-3 font-semibold transition ${isActive ? 'bg-gold/10 text-gold' : 'text-zinc-300 hover:bg-white/5'}`}>
-                {label}
-              </NavLink>
-            ))}
-            <a className="whitespace-nowrap rounded-xl px-3 py-3 text-zinc-300 hover:bg-white/5" href="/portal-terceiro" target="_blank">↗ Portal Terceiro</a>
-            <a className="whitespace-nowrap rounded-xl px-3 py-3 text-zinc-300 hover:bg-white/5" href="/orcamento-rapido" target="_blank">↗ PDV Público</a>
-          </nav>
+          <button onClick={sair} className="top-action danger-action">Sair</button>
+        </div>
+      </header>
 
-          <button onClick={sair} className="btn-dark mt-4 w-full lg:mt-8">Sair</button>
-        </aside>
-      )}
-      <main className={`p-4 transition-all lg:p-8 ${menuOpen ? 'lg:ml-72 lg:w-[calc(100%-18rem)]' : 'lg:ml-0 lg:w-full pt-20 lg:pt-8'}`}><Outlet /></main>
+      {menuOpen && <div onClick={()=>setMenuOpen(false)} className="fixed inset-0 z-20 bg-black/40 lg:hidden" />}
+
+      <aside className={`sidebar-shell fixed bottom-0 left-0 top-16 z-30 w-72 border-r p-4 transition-transform duration-300 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="mb-4 rounded-2xl border border-current/10 p-3 text-xs muted-text">
+          Perfil: <strong className="text-strong">{role}</strong>
+        </div>
+        <nav className="flex h-[calc(100vh-8.5rem)] flex-col gap-1 overflow-y-auto pr-1">
+          {sideLinks.filter(l=>l.roles.includes(role)).map(({to,label}) => (
+            <NavLink key={to} to={to} onClick={()=> window.innerWidth < 1024 && setMenuOpen(false)} className={({ isActive }) => `nav-item rounded-xl px-3 py-3 text-sm font-semibold transition ${isActive ? 'nav-active' : 'nav-idle'}`}>
+              {label}
+            </NavLink>
+          ))}
+          <div className="my-2 border-t border-current/10" />
+          <a className="nav-item nav-idle rounded-xl px-3 py-3 text-sm font-semibold transition" href="/portal-terceiro" target="_blank">Portal Terceiro ↗</a>
+          <a className="nav-item nav-idle rounded-xl px-3 py-3 text-sm font-semibold transition" href="/orcamento-rapido" target="_blank">PDV Público ↗</a>
+        </nav>
+      </aside>
+
+      <main className={`min-h-screen pt-20 transition-all duration-300 ${menuOpen ? 'lg:pl-72' : 'lg:pl-0'}`}>
+        <div className="mx-auto w-full max-w-[1600px] px-4 pb-8 md:px-6 lg:px-8">
+          <div className="mb-4 block text-lg font-black md:hidden">{pageTitle}</div>
+          <Outlet />
+        </div>
+      </main>
     </div>
   )
 }
