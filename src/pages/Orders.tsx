@@ -374,8 +374,8 @@ export default function Orders(){
     pdf.rect(0,286,210,11,'F')
     pdf.setTextColor(255,255,255)
     pdf.setFontSize(8)
-    pdf.text('Garagem Comunicação Visual',10,293)
-    pdf.text(cfg.phone || '(41) 99267-5409',165,293)
+    pdf.text(cfg.pdf_footer || cfg.company_name || 'Garagem Comunicação Visual',10,293)
+    pdf.text(cfg.whatsapp || cfg.phone || '(41) 99267-5409',165,293)
 
     pdf.save(`${production?'producao':'os'}-${o.os_number || 'ordem'}.pdf`)
   }

@@ -204,7 +204,7 @@ export default function PublicQuote(){
     <div className="grid min-h-screen place-items-center bg-matte p-6">
       <div className="card text-center">
         <img src="/logo.png" alt="Garagem Comunicação Visual" className="logo-img mx-auto max-h-28 object-contain"/>
-        <h1 className="mt-4 text-3xl font-black">Orçamento enviado!</h1>
+        <h1 className="mt-4 text-3xl font-black">PDV enviado!</h1>
         {sent.project_name && <p className="text-zinc-300">Projeto: {sent.project_name}</p>}
         <p className="text-zinc-400">Código: {sent.code}</p>
         <p className="text-zinc-400">Serviços cadastrados: {sent.items?.length || 1}</p>
@@ -223,7 +223,7 @@ export default function PublicQuote(){
             <img src="/logo.png" alt="Garagem Comunicação Visual" className="logo-img max-h-28 object-contain"/>
           </div>
 
-          <h1 className="text-3xl font-black">Orçamento Rápido</h1>
+          <h1 className="text-3xl font-black">PDV</h1>
           <p className="text-zinc-400">Informe as medidas em centímetros. Você pode adicionar quantos serviços precisar.</p>
 
           {errorMsg && <div className="mt-4 rounded-xl border border-red-500/30 bg-red-950/60 p-4 text-red-100">{errorMsg}</div>}

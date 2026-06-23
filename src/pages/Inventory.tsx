@@ -5,7 +5,7 @@ function brNumber(v:string){ return Number(String(v||'').replace(/\./g,'').repla
 
 export default function Inventory(){
   const [rows,setRows]=useState<any[]>([])
-  const [form,setForm]=useState({material:'',quantity:'',unit:'m²',min_quantity:'',notes:''})
+  const [form,setForm]=useState({material:'',quantity:'',unit:'m²',min_quantity:'',unit_cost:'',notes:''})
 
   useEffect(()=>{load()},[])
 
@@ -21,14 +21,16 @@ export default function Inventory(){
       quantity:brNumber(form.quantity),
       unit:form.unit,
       min_quantity:brNumber(form.min_quantity),
+      unit_cost:brNumber(form.unit_cost),
+      total_cost:brNumber(form.quantity)*brNumber(form.unit_cost),
       notes:form.notes||null
     })
-    setForm({material:'',quantity:'',unit:'m²',min_quantity:'',notes:''})
+    setForm({material:'',quantity:'',unit:'m²',min_quantity:'',unit_cost:'',notes:''})
     load()
   }
 
-  async function updateQty(id:string, quantity:string){
-    await supabase.from('inventory').update({quantity:brNumber(quantity)}).eq('id',id)
+  async function updateQty(id:string, quantity:string, unitCost?:string){
+    const q=brNumber(quantity); const c=brNumber(unitCost||'0'); await supabase.from('inventory').update({quantity:q,unit_cost:c,total_cost:q*c}).eq('id',id)
     load()
   }
 
@@ -41,35 +43,38 @@ export default function Inventory(){
   return (
     <div>
       <h1 className="text-4xl font-black">Estoque</h1>
-      <p className="mb-6 text-zinc-400">Controle de material, quantidade e estoque mínimo.</p>
+      <p className="mb-6 text-zinc-400">Controle de material, quantidade, estoque mínimo e valor dos materiais.</p>
 
-      <form onSubmit={save} className="card mb-6 grid gap-3 md:grid-cols-5">
+      <form onSubmit={save} className="card mb-6 grid gap-3 md:grid-cols-6">
         <input className="input" placeholder="Material" value={form.material} onChange={e=>setForm({...form,material:e.target.value})} required/>
         <input className="input" placeholder="Quantidade" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})} required/>
         <input className="input" placeholder="Unidade" value={form.unit} onChange={e=>setForm({...form,unit:e.target.value})}/>
         <input className="input" placeholder="Mínimo" value={form.min_quantity} onChange={e=>setForm({...form,min_quantity:e.target.value})}/>
+        <input className="input" placeholder="Valor unitário" value={form.unit_cost} onChange={e=>setForm({...form,unit_cost:e.target.value})}/>
         <button className="btn-gold">Adicionar</button>
-        <input className="input md:col-span-5" placeholder="Observações" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/>
+        <input className="input md:col-span-6" placeholder="Observações" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})}/>
       </form>
 
       <div className="card table-wrap">
         <table>
-          <thead><tr><th>Material</th><th>Qtd</th><th>Unidade</th><th>Mínimo</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Material</th><th>Qtd</th><th>Unidade</th><th>Mínimo</th><th>Valor unit.</th><th>Total</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
             {rows.map(r=>{
               const low=Number(r.quantity)<=Number(r.min_quantity)
               return (
                 <tr key={r.id}>
                   <td>{r.material}<br/><small>{r.notes}</small></td>
-                  <td><input className="input max-w-32" defaultValue={r.quantity} onBlur={e=>updateQty(r.id,e.target.value)}/></td>
+                  <td><input className="input max-w-32" defaultValue={r.quantity} onBlur={e=>updateQty(r.id,e.target.value,String(r.unit_cost||0))}/></td>
                   <td>{r.unit}</td>
                   <td>{r.min_quantity}</td>
+                  <td><input className="input max-w-32" defaultValue={r.unit_cost||0} onBlur={e=>updateQty(r.id,String(r.quantity||0),e.target.value)}/></td>
+                  <td>{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(r.total_cost||Number(r.quantity||0)*Number(r.unit_cost||0)||0))}</td>
                   <td><span className={`badge ${low?'danger':'success'}`}>{low?'Baixo':'OK'}</span></td>
                   <td><button className="btn-red" onClick={()=>remove(r.id)}>Apagar</button></td>
                 </tr>
               )
             })}
-            {rows.length===0 && <tr><td colSpan={6} className="text-zinc-400">Nenhum material cadastrado.</td></tr>}
+            {rows.length===0 && <tr><td colSpan={8} className="text-zinc-400">Nenhum material cadastrado.</td></tr>}
           </tbody>
         </table>
       </div>

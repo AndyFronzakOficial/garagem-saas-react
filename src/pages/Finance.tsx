@@ -9,11 +9,13 @@ function monthRange(ym:string){ const [y,m]=ym.split('-').map(Number); return {s
 function brDate(v?:string|null){ if(!v)return '-'; const [y,m,d]=v.slice(0,10).split('-'); return `${d}/${m}/${y}` }
 
 export default function Finance(){
-  const [tab,setTab]=useState<'receber'|'pagar'|'fluxo'>('receber')
+  const [tab,setTab]=useState<'receber'|'pagar'|'fluxo'|'custos'>('receber')
   const [period,setPeriod]=useState(currentMonth())
   const [receber,setReceber]=useState<any[]>([])
   const [pagar,setPagar]=useState<any[]>([])
   const [form,setForm]=useState({title:'',supplier:'',amount:'',due_date:today(),recurring:false})
+  const [orders,setOrders]=useState<any[]>([])
+  const [costEdit,setCostEdit]=useState<Record<string,any>>({})
 
   useEffect(()=>{load()},[period])
 
@@ -25,6 +27,8 @@ export default function Finance(){
     ])
     setReceber(r.data||[])
     setPagar(p.data||[])
+    const o = await supabase.from('service_orders').select('*,clients(*)').gte('created_at',start).lte('created_at',end+'T23:59:59').order('created_at',{ascending:false})
+    setOrders((o.data||[]).filter((x:any)=>!x.is_deleted))
   }
 
   async function create(e:React.FormEvent){
@@ -73,6 +77,8 @@ export default function Finance(){
   },[receber,pagar])
 
   const rows=tab==='receber'?receber:pagar
+  const orderTotals = orders.reduce((acc,o)=>{ acc.sales+=Number(o.estimated_price||0); acc.costs+=Number(o.material_cost||0)+Number(o.installation_cost||0)+Number(o.designer_cost||0)+Number(o.other_cost||0); return acc },{sales:0,costs:0})
+  async function saveOrderCosts(o:any){ const e=costEdit[o.id]||{}; await supabase.from('service_orders').update({material_cost:Number(String(e.material_cost ?? o.material_cost ?? 0).replace(',','.'))||0,installation_cost:Number(String(e.installation_cost ?? o.installation_cost ?? 0).replace(',','.'))||0,designer_cost:Number(String(e.designer_cost ?? o.designer_cost ?? 0).replace(',','.'))||0,other_cost:Number(String(e.other_cost ?? o.other_cost ?? 0).replace(',','.'))||0}).eq('id',o.id); load() }
 
   return (
     <div>
@@ -92,9 +98,10 @@ export default function Finance(){
         <button onClick={()=>setTab('receber')} className={tab==='receber'?'btn-gold':'btn-dark'}>Contas a receber</button>
         <button onClick={()=>setTab('pagar')} className={tab==='pagar'?'btn-gold':'btn-dark'}>Contas a pagar</button>
         <button onClick={()=>setTab('fluxo')} className={tab==='fluxo'?'btn-gold':'btn-dark'}>Fluxo de caixa</button>
+        <button onClick={()=>setTab('custos')} className={tab==='custos'?'btn-gold':'btn-dark'}>Controle de custos</button>
       </div>
 
-      {tab!=='fluxo' && (
+      {tab!=='fluxo' && tab!=='custos' && (
         <form onSubmit={create} className="card mb-6 grid gap-3 md:grid-cols-5">
           <input className="input" placeholder="Título" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} required/>
           {tab==='pagar' && <input className="input" placeholder="Fornecedor" value={form.supplier} onChange={e=>setForm({...form,supplier:e.target.value})}/>}
@@ -105,7 +112,12 @@ export default function Finance(){
         </form>
       )}
 
-      {tab==='fluxo' ? (
+      {tab==='custos' ? (
+        <div>
+          <section className="mb-5 grid gap-4 md:grid-cols-3"><article className="card"><small>Vendas em OS</small><h2 className="text-2xl font-black">{money(orderTotals.sales)}</h2></article><article className="card"><small>Custos lançados</small><h2 className="text-2xl font-black">{money(orderTotals.costs)}</h2></article><article className="card"><small>Lucro estimado</small><h2 className="text-2xl font-black">{money(orderTotals.sales-orderTotals.costs)}</h2></article></section>
+          <div className="card table-wrap"><table><thead><tr><th>OS</th><th>Cliente</th><th>Venda</th><th>Material</th><th>Instalação</th><th>Designer</th><th>Outros</th><th>Lucro</th><th>Ação</th></tr></thead><tbody>{orders.map(o=>{const e=costEdit[o.id]||{}; const mat=Number(e.material_cost ?? o.material_cost ?? 0)||0; const inst=Number(e.installation_cost ?? o.installation_cost ?? 0)||0; const des=Number(e.designer_cost ?? o.designer_cost ?? 0)||0; const oth=Number(e.other_cost ?? o.other_cost ?? 0)||0; const sale=Number(o.estimated_price||0); return <tr key={o.id}><td>{o.os_number}<br/><small>{o.service}</small></td><td>{o.clients?.name||'-'}</td><td>{money(sale)}</td><td><input className="input w-28" value={e.material_cost ?? o.material_cost ?? ''} onChange={ev=>setCostEdit({...costEdit,[o.id]:{...e,material_cost:ev.target.value}})}/></td><td><input className="input w-28" value={e.installation_cost ?? o.installation_cost ?? ''} onChange={ev=>setCostEdit({...costEdit,[o.id]:{...e,installation_cost:ev.target.value}})}/></td><td><input className="input w-28" value={e.designer_cost ?? o.designer_cost ?? ''} onChange={ev=>setCostEdit({...costEdit,[o.id]:{...e,designer_cost:ev.target.value}})}/></td><td><input className="input w-28" value={e.other_cost ?? o.other_cost ?? ''} onChange={ev=>setCostEdit({...costEdit,[o.id]:{...e,other_cost:ev.target.value}})}/></td><td>{money(sale-mat-inst-des-oth)}</td><td><button className="btn-gold" onClick={()=>saveOrderCosts(o)}>Salvar</button></td></tr>})}</tbody></table></div>
+        </div>
+      ) : tab==='fluxo' ? (
         <div className="card table-wrap">
           <table><thead><tr><th>Dia</th><th>Entradas</th><th>Saídas</th><th>Saldo</th></tr></thead>
           <tbody>
