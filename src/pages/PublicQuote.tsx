@@ -31,6 +31,13 @@ export default function PublicQuote(){
   const [errorMsg,setErrorMsg]=useState('')
   const [loading,setLoading]=useState(false)
   const [items,setItems]=useState<QuoteItem[]>([newItem()])
+  const [theme,setTheme]=useState<'dark'|'light'>(()=>(localStorage.getItem('pdv-theme') as 'dark'|'light') || 'dark')
+
+  function toggleTheme(){
+    const next=theme==='dark'?'light':'dark'
+    setTheme(next)
+    localStorage.setItem('pdv-theme',next)
+  }
 
   const [f,setF]=useState({
     client_name:'',
@@ -201,30 +208,38 @@ export default function PublicQuote(){
   }
 
   if(sent)return (
-    <div className="grid min-h-screen place-items-center bg-matte p-6">
-      <div className="card text-center">
+    <div className={`client-portal portal-public ${theme==='dark'?'theme-dark':''}`}>
+      <div className="client-shell grid min-h-screen place-items-center">
+      <div className="card text-center w-full max-w-lg">
         <img src="/logo.png" alt="Garagem Comunicação Visual" className="logo-img mx-auto max-h-28 object-contain"/>
         <h1 className="mt-4 text-3xl font-black">PDV enviado!</h1>
-        {sent.project_name && <p className="text-zinc-300">Projeto: {sent.project_name}</p>}
-        <p className="text-zinc-400">Código: {sent.code}</p>
-        <p className="text-zinc-400">Serviços cadastrados: {sent.items?.length || 1}</p>
+        {sent.project_name && <p className="muted-text">Projeto: {sent.project_name}</p>}
+        <p className="muted-text">Código: {sent.code}</p>
+        <p className="muted-text">Serviços cadastrados: {sent.items?.length || 1}</p>
         <div className="price-preview mt-4"><strong>{money(sent.total)}</strong></div>
         {sent.fileUrl && <a href={sent.fileUrl} target="_blank" className="mt-4 block text-gold">Arquivo enviado para o Drive</a>}
         {sent.projectImageUrl && <a href={sent.projectImageUrl} target="_blank" className="mt-2 block text-gold">Imagem do projeto enviada</a>}
+      </div>
       </div>
     </div>
   )
 
   return (
-    <div className="client-portal">
-      <div className="client-shell">
+    <div className={`client-portal portal-public ${theme==='dark'?'theme-dark':''}`}>
+      <header className="portal-topbar">
+        <div className="portal-topbar-inner">
+          <img src="/logo.png" alt="Garagem Comunicação Visual" className="logo-img max-h-12 object-contain"/>
+          <button type="button" className="btn-dark" onClick={toggleTheme}>{theme==='dark'?'Tema claro':'Tema escuro'}</button>
+        </div>
+      </header>
+      <div className="client-shell portal-shell-offset">
         <section className="client-card">
           <div className="mb-5">
-            <img src="/logo.png" alt="Garagem Comunicação Visual" className="logo-img max-h-28 object-contain"/>
+            <p className="muted-text text-sm font-bold uppercase tracking-[0.25em]">PDV Público</p>
           </div>
 
-          <h1 className="text-3xl font-black">PDV</h1>
-          <p className="text-zinc-400">Informe as medidas em centímetros. Você pode adicionar quantos serviços precisar.</p>
+          <h1 className="text-3xl font-black text-strong">PDV</h1>
+          <p className="muted-text">Informe as medidas em centímetros. Você pode adicionar quantos serviços precisar.</p>
 
           {errorMsg && <div className="mt-4 rounded-xl border border-red-500/30 bg-red-950/60 p-4 text-red-100">{errorMsg}</div>}
 
@@ -240,7 +255,7 @@ export default function PublicQuote(){
               {items.map((item,index)=>{
                 const calc = calcItem(item)
                 return (
-                  <div key={item.localId} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <div key={item.localId} className="portal-inner-card p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <strong className="text-gold">Serviço {index+1}</strong>
                       {items.length > 1 && <button type="button" className="btn-dark" onClick={()=>removeItem(item.localId)}>Remover</button>}
@@ -257,7 +272,7 @@ export default function PublicQuote(){
                       <textarea className="input md:col-span-2" placeholder="Observação deste serviço" value={item.observation} onChange={e=>updateItem(item.localId,{observation:e.target.value})}/>
                     </div>
 
-                    <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-zinc-300">
+                    <div className="portal-inner-card mt-3 p-3 text-sm muted-text">
                       Área: {calc.area.toFixed(2)} m² • Automático: {money(calc.autoTotal)} • <strong>{money(calc.total)}</strong>
                     </div>
                   </div>
@@ -270,19 +285,19 @@ export default function PublicQuote(){
             <textarea className="input full" placeholder="Observação geral do projeto" value={f.description} onChange={e=>setF({...f,description:e.target.value})}/>
 
             <div className="full">
-              <label className="mb-2 block text-sm text-zinc-400">Imagem do projeto para aparecer no PDF da OS</label>
+              <label className="mb-2 block text-sm muted-text">Imagem do projeto para aparecer no PDF da OS</label>
               <input className="input" type="file" accept="image/*" onChange={e=>setProjectImage(e.target.files?.[0]||null)}/>
-              <p className="mt-2 text-xs text-zinc-500">Opcional. Envio direto pelo Supabase, limite de 50MB.</p>
-              {projectImage && <p className="mt-2 text-sm text-zinc-400">Imagem selecionada: {projectImage.name}</p>}
+              <p className="mt-2 text-xs muted-text">Opcional. Envio direto pelo Supabase, limite de 50MB.</p>
+              {projectImage && <p className="mt-2 text-sm muted-text">Imagem selecionada: {projectImage.name}</p>}
             </div>
 
             <div className="full">
-              <label className="mb-2 block text-sm text-zinc-400">Arquivo da arte</label>
+              <label className="mb-2 block text-sm muted-text">Arquivo da arte</label>
               <div className="flex flex-col gap-3 md:flex-row md:items-center">
                 <input className="input" type="file" onChange={e=>setFile(e.target.files?.[0]||null)}/>
                 <button type="button" className="btn-dark whitespace-nowrap" onClick={()=>connectGoogleDrive().catch(err=>setErrorMsg(err.message))}>Conectar Google Drive</button>
               </div>
-              {file && <p className="mt-2 text-sm text-zinc-400">Arquivo selecionado: {file.name}</p>}
+              {file && <p className="mt-2 text-sm muted-text">Arquivo selecionado: {file.name}</p>}
             </div>
 
             <div className="price-preview full">
