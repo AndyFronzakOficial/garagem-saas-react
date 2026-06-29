@@ -104,6 +104,7 @@ export default function Layout() {
                 <NavLink to="/configuracoes" className="dropdown-item">Personalização</NavLink>
                 <NavLink to="/backup" className="dropdown-item">Backup</NavLink>
                 <NavLink to="/usuarios" className="dropdown-item">Usuários</NavLink>
+                <NavLink to="/financeiro" className="dropdown-item">Financeiro</NavLink>
                 <div className="my-1 border-t border-current/10" />
                 <a href="https://garagem-saas-react.vercel.app/configuracoes" className="dropdown-item text-xs" target="_blank">Link configurações</a>
                 <a href="https://garagem-saas-react.vercel.app/backup" className="dropdown-item text-xs" target="_blank">Link backup</a>
