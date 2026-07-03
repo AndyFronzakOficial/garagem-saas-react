@@ -132,6 +132,7 @@ export default function Layout() {
           <div className="my-2 border-t border-current/10" />
           <a className="nav-item nav-idle rounded-xl px-3 py-3 text-sm font-semibold transition" href="/portal-terceiro" target="_blank">Portal Terceiro ↗</a>
           <a className="nav-item nav-idle rounded-xl px-3 py-3 text-sm font-semibold transition" href="/orcamento-rapido" target="_blank">PDV Público ↗</a>
+          <a className="nav-item nav-idle rounded-xl px-3 py-3 text-sm font-semibold transition" href="/financeiro" target="_blank">Financeiro ↗</a>
         </nav>
       </aside>
 
