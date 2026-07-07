@@ -4,14 +4,19 @@ import { supabase } from '../lib/supabase'
 import { useProfile } from '../lib/useProfile'
 
 const sideLinks = [
-  {to:'/', label:'Dashboard', roles:['Administrador','Financeiro','Produção','Vendas','Funcionário']},
+  {to:'/', label:'Dashboard', roles:['Administrador','Financeiro']},
   {to:'/clientes', label:'Clientes', roles:['Administrador','Vendas','Financeiro','Orçamento']},
   {to:'/historico-clientes', label:'Histórico do Cliente', roles:['Administrador','Vendas','Financeiro']},
+  {to:'/leads', label:'Novos Leads', roles:['Administrador','Vendas','Orçamento']},
   {to:'/orcamentos', label:'Orçamentos', roles:['Administrador','Vendas','Orçamento','Financeiro']},
   {to:'/ordens', label:'Ordens de Serviço', roles:['Administrador','Produção','Vendas','Funcionário','Orçamento']},
   {to:'/kanban', label:'Kanban', roles:['Administrador','Produção','Funcionário']},
-  {to:'/precos', label:'Preço por m²', roles:['Administrador','Financeiro']},
-  {to:'/entregas', label:'Entrega', roles:['Administrador','Produção','Funcionário']},
+  {to:'/precos', label:'Preços por m²', roles:['Administrador','Financeiro']},
+  {to:'/financeiro', label:'Financeiro', roles:['Administrador','Financeiro']},
+  {to:'/estoque', label:'Estoque', roles:['Administrador','Produção','Funcionário']},
+  {to:'/entregas', label:'Entrega/Instalação', roles:['Administrador','Produção','Funcionário']},
+
+
 ]
 
 const pageTitles: Record<string,string> = {
@@ -104,7 +109,6 @@ export default function Layout() {
                 <NavLink to="/configuracoes" className="dropdown-item">Personalização</NavLink>
                 <NavLink to="/backup" className="dropdown-item">Backup</NavLink>
                 <NavLink to="/usuarios" className="dropdown-item">Usuários</NavLink>
-                <NavLink to="/financeiro" className="dropdown-item">Financeiro</NavLink>
                 <div className="my-1 border-t border-current/10" />
                 <a href="https://garagem-saas-react.vercel.app/configuracoes" className="dropdown-item text-xs" target="_blank">Link configurações</a>
                 <a href="https://garagem-saas-react.vercel.app/backup" className="dropdown-item text-xs" target="_blank">Link backup</a>
@@ -120,9 +124,7 @@ export default function Layout() {
       {menuOpen && <div onClick={()=>setMenuOpen(false)} className="fixed inset-0 z-20 bg-black/40 lg:hidden" />}
 
       <aside className={`sidebar-shell fixed bottom-0 left-0 top-16 z-30 w-72 border-r p-4 transition-transform duration-300 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="mb-4 rounded-2xl border border-current/10 p-3 text-xs muted-text">
-          Perfil: <strong className="text-strong">{role}</strong>
-        </div>
+       
         <nav className="flex h-[calc(100vh-8.5rem)] flex-col gap-1 overflow-y-auto pr-1">
           {sideLinks.filter(l=>l.roles.includes(role)).map(({to,label}) => (
             <NavLink key={to} to={to} onClick={()=> window.innerWidth < 1024 && setMenuOpen(false)} className={({ isActive }) => `nav-item rounded-xl px-3 py-3 text-sm font-semibold transition ${isActive ? 'nav-active' : 'nav-idle'}`}>
@@ -132,7 +134,6 @@ export default function Layout() {
           <div className="my-2 border-t border-current/10" />
           <a className="nav-item nav-idle rounded-xl px-3 py-3 text-sm font-semibold transition" href="/portal-terceiro" target="_blank">Portal Terceiro ↗</a>
           <a className="nav-item nav-idle rounded-xl px-3 py-3 text-sm font-semibold transition" href="/orcamento-rapido" target="_blank">PDV Público ↗</a>
-          <a className="nav-item nav-idle rounded-xl px-3 py-3 text-sm font-semibold transition" href="/financeiro" target="_blank">Financeiro ↗</a>
         </nav>
       </aside>
 

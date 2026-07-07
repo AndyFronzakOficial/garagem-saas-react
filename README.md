@@ -1,122 +1,72 @@
-# Bazar Eletrônicos ERP — V19 Ordens de Serviço
+# Garagem SaaS React + Supabase
 
-Versão criada sobre a **V18 corrigida com caixa, cupom e menu recolhível**.
+Projeto convertido para:
 
-## Novidades
+- React
+- TypeScript
+- Tailwind CSS
+- Vite
+- Supabase Auth
+- Supabase PostgreSQL
+- jsPDF
 
-- Nova tela **Ordens de Serviço**.
-- Cadastro com nome, Instagram, WhatsApp e data.
-- Seleção de produtos cadastrados com preço unitário automático.
-- Quantidade, valor unitário e total por item.
-- PDF A4 profissional inspirado no modelo enviado.
-- Dados PIX no PDF:
-  - Chave: `41-98464-8144`
-  - Titular: `Abquella Carmo de Lima`
-  - Banco: `Banco Itaú`
-- Histórico organizado em tabela.
-- Controle de pago/pendente.
-- Controle de entregue/não entregue.
-- Integração automática com o financeiro.
-- Ordens pagas entram como receita.
-- Ordens pendentes entram em contas a receber.
-- Dashboard mostra ordens do mês e valor a receber.
-- Botão para abrir conversa no WhatsApp da cliente.
-- Botão para gerar novamente o PDF.
-
-## Supabase
-
-No SQL Editor, execute:
-
-```txt
-supabase/v19_ordens_servico_migration.sql
-```
-
-O mesmo conteúdo também está em `supabase/schema.sql`.
-
-## Instalação
+## Instalar
 
 ```bash
 npm install
-npm run dev
 ```
 
-## Build
+## Supabase
 
-```bash
-npm run build
+1. Crie projeto em https://supabase.com
+2. Vá em SQL Editor
+3. Rode:
+
+```txt
+supabase/schema.sql
 ```
 
-A pasta `dist` será criada automaticamente.
+4. Vá em Authentication > Users
+5. Crie usuário:
 
-## Vercel
+```txt
+admin@garagem.com
+123456
+```
 
-O projeto inclui `vercel.json` para forçar:
+6. Copie `.env.example` para `.env`
+7. Preencha:
 
-- instalação com npm;
-- build com `npm run build`;
-- saída em `dist`.
-
-Configure as variáveis:
-
-```env
+```txt
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
+## Rodar
 
-## V20 — Histórico Completo do Cliente
-
-Incluído:
-
-- Nova tela "Histórico Cliente"
-- Todas as compras do cliente
-- Itens comprados
-- Ordens de serviço vinculadas
-- Produtos reservados
-- Fiado / contas a receber
-- Pagamentos
-- Trocas e devoluções
-- Garantias
-- Total gasto
-- Última compra
-- Botão direto para WhatsApp
-
-Antes de usar, rode no Supabase:
-
-```txt
-supabase/v20_historico_cliente_migration.sql
+```bash
+npm run dev
 ```
 
-## V21 — Ordem de Serviço Completa
+## Hospedar grátis
 
-Incluído:
-- Número automático da OS
-- Data e hora da entrada
-- Cliente
-- Aparelho
-- Defeito relatado pelo cliente
-- Condição visual do aparelho
-- Serviço solicitado
-- Técnico responsável
-- Prioridade
-- Prazo estimado
-- Valor estimado
-- Valor final
-- Entrada paga
-- Saldo restante
-- Forma de pagamento
-- Status do serviço
-- Observações internas
-- Termos da assistência
-- Assinatura do cliente
-- Fotos anexadas
-- PDF profissional
-- Envio pelo WhatsApp
-- Consultar, alterar e excluir OS
-- Sincronização com financeiro
+- Vercel ou Cloudflare Pages para frontend
+- Supabase Free para banco
 
-Antes de usar, rode no Supabase:
+## Rotas
 
-```txt
-supabase/v21_ordem_servico_completa_migration.sql
-```
+- `/login`
+- `/`
+- `/clientes`
+- `/leads`
+- `/ordens`
+- `/precos`
+- `/financeiro`
+- `/estoque`
+- `/entregas`
+- `/portal-terceiro`
+- `/orcamento-rapido`
+
+## Observação
+
+Esta é uma versão inicial funcional da conversão. Clientes, preços, orçamento público, leads, OS, dashboard e PDF já estão conectados. Financeiro, estoque e entregas têm tabelas prontas e telas base para expansão.

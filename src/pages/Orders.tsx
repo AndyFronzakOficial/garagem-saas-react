@@ -153,6 +153,8 @@ export default function Orders(){
     setSelectedIds(checked ? filtered.map(r=>r.id) : [])
   }
 
+  
+
   async function deleteSelectedOrders(){
     if(selectedIds.length === 0){ setMsg('Selecione pelo menos uma ordem de serviço para excluir.'); return }
     const ok = confirm(`Excluir ${selectedIds.length} ordem(ns) de serviço selecionada(s)?`)
