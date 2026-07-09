@@ -91,6 +91,7 @@ function normalizeItems(o:any){
 function formatCm(v:any){
   return `${Number(v || 0).toFixed(0)}cm`
 }
+function numberInput(v:any){ return Number(String(v ?? '').replace(',','.')) || 0 }
 
 export default function Orders(){
   const [rows,setRows]=useState<any[]>([])
@@ -104,6 +105,7 @@ export default function Orders(){
   const [valueOrder,setValueOrder]=useState('')
   const [selectedIds,setSelectedIds]=useState<string[]>([])
   const [msg,setMsg]=useState('')
+  const [editOrder,setEditOrder]=useState<any|null>(null)
   const topScrollRef = useRef<HTMLDivElement|null>(null)
   const tableScrollRef = useRef<HTMLDivElement|null>(null)
 
@@ -181,6 +183,49 @@ export default function Orders(){
       .eq('id',id)
 
     load()
+  }
+
+  function openEditOrder(o:any){
+    setEditOrder({
+      id:o.id,
+      os_number:o.os_number || '',
+      service:o.service || '',
+      service_type:o.service_type || '',
+      finishing:o.finishing || '',
+      measures:o.measures || '',
+      description:o.description || '',
+      estimated_price:String(o.estimated_price || ''),
+      priority:o.priority || 'Média',
+      status:o.status || 'Entrada',
+      due_date:o.due_date || '',
+      delivered_at:o.delivered_at || ''
+    })
+    setMsg('Editando ordem de serviço. Altere os campos e clique em salvar alteração.')
+    window.scrollTo({top:0,behavior:'smooth'})
+  }
+
+  async function saveEditedOrder(e:React.FormEvent){
+    e.preventDefault()
+    if(!editOrder) return
+    setLoading(true)
+    const update:any = {
+      service:editOrder.service,
+      service_type:editOrder.service_type,
+      finishing:editOrder.finishing,
+      measures:editOrder.measures,
+      description:editOrder.description,
+      estimated_price:numberInput(editOrder.estimated_price),
+      priority:editOrder.priority,
+      status:editOrder.status,
+      due_date:editOrder.due_date || null,
+      delivered_at:editOrder.delivered_at || null
+    }
+    if(editOrder.status === 'Entregue' && !update.delivered_at) update.delivered_at = today()
+    const { error } = await supabase.from('service_orders').update(update).eq('id',editOrder.id)
+    if(error) setMsg('Erro ao atualizar OS: ' + error.message)
+    else { setMsg('Ordem de serviço atualizada com sucesso.'); setEditOrder(null) }
+    await load()
+    setLoading(false)
   }
 
   async function uploadApprovedImage(order:any, file:File){
@@ -438,6 +483,28 @@ export default function Orders(){
 
       {msg && <div className="mb-4 rounded-xl border border-gold/30 bg-gold/10 p-4 text-gold">{msg}</div>}
 
+      {editOrder && (
+        <form onSubmit={saveEditedOrder} className="card mb-5 space-y-4">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div><h2 className="text-2xl font-black">Editar OS {editOrder.os_number}</h2><p className="text-zinc-400">Atualize os dados principais da ordem de serviço.</p></div>
+            <button type="button" className="btn-dark" onClick={()=>setEditOrder(null)}>Cancelar edição</button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-4">
+            <input className="input" placeholder="Serviço" value={editOrder.service} onChange={e=>setEditOrder({...editOrder,service:e.target.value})}/>
+            <input className="input" placeholder="Tipo de serviço" value={editOrder.service_type} onChange={e=>setEditOrder({...editOrder,service_type:e.target.value})}/>
+            <input className="input" placeholder="Acabamento" value={editOrder.finishing} onChange={e=>setEditOrder({...editOrder,finishing:e.target.value})}/>
+            <input className="input" placeholder="Medidas" value={editOrder.measures} onChange={e=>setEditOrder({...editOrder,measures:e.target.value})}/>
+            <input className="input" placeholder="Valor" value={editOrder.estimated_price} onChange={e=>setEditOrder({...editOrder,estimated_price:e.target.value})}/>
+            <select className="input" value={editOrder.priority} onChange={e=>setEditOrder({...editOrder,priority:e.target.value})}>{priorities.map(p=><option key={p}>{p}</option>)}</select>
+            <select className="input" value={editOrder.status} onChange={e=>setEditOrder({...editOrder,status:e.target.value})}>{statuses.map(s=><option key={s}>{s}</option>)}</select>
+            <input className="input" type="date" value={editOrder.due_date} onChange={e=>setEditOrder({...editOrder,due_date:e.target.value})}/>
+            <input className="input" type="date" value={editOrder.delivered_at} onChange={e=>setEditOrder({...editOrder,delivered_at:e.target.value})}/>
+            <textarea className="input md:col-span-3" placeholder="Descrição" value={editOrder.description} onChange={e=>setEditOrder({...editOrder,description:e.target.value})}/>
+          </div>
+          <button className="btn-gold">Salvar alteração</button>
+        </form>
+      )}
+
       <section className="mb-5 grid gap-4 md:grid-cols-4">
         <article className="card">
           <small className="text-zinc-400">Total de OS</small>
@@ -620,6 +687,7 @@ export default function Orders(){
 
                   <td className="min-w-[150px]">
                     <div className="grid gap-2">
+                      <button className="btn-dark" onClick={()=>openEditOrder(r)}>Editar</button>
                       <button className="btn-gold" onClick={()=>professionalPdf(r,false)}>PDF OS</button>
                       <button className="btn-dark" onClick={()=>professionalPdf(r,true)}>Produção</button>
                     </div>

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useProfile } from '../lib/useProfile'
 
 const sideLinks = [
-  {to:'/', label:'Dashboard', roles:['Administrador','Financeiro']},
+  {to:'/', label:'Dashboard', roles:['Administrador']},
   {to:'/clientes', label:'Clientes', roles:['Administrador','Vendas','Financeiro','Orçamento']},
   {to:'/historico-clientes', label:'Histórico do Cliente', roles:['Administrador','Vendas','Financeiro']},
   {to:'/leads', label:'Novos Leads', roles:['Administrador','Vendas','Orçamento']},
@@ -12,7 +12,7 @@ const sideLinks = [
   {to:'/ordens', label:'Ordens de Serviço', roles:['Administrador','Produção','Vendas','Funcionário','Orçamento']},
   {to:'/kanban', label:'Kanban', roles:['Administrador','Produção','Funcionário']},
   {to:'/precos', label:'Preços por m²', roles:['Administrador','Financeiro']},
-  {to:'/financeiro', label:'Financeiro', roles:['Administrador','Financeiro']},
+  {to:'/financeiro', label:'Financeiro', roles:['Administrador']},
   {to:'/estoque', label:'Estoque', roles:['Administrador','Produção','Funcionário']},
   {to:'/entregas', label:'Entrega/Instalação', roles:['Administrador','Produção','Funcionário']},
 
@@ -40,7 +40,7 @@ export default function Layout() {
   const nav = useNavigate()
   const location = useLocation()
   const { profile } = useProfile()
-  const role = profile?.role || 'Administrador'
+  const role = profile?.role || ''
   const [menuOpen,setMenuOpen] = useState(()=>localStorage.getItem('garagem_menu_open') !== 'false')
   const [settingsOpen,setSettingsOpen] = useState(false)
   const [theme,setTheme] = useState(()=>localStorage.getItem('garagem_theme') || 'dark')
@@ -102,20 +102,22 @@ export default function Layout() {
             {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
           </button>
 
-          <div className="relative">
-            <button onClick={()=>setSettingsOpen(v=>!v)} className="top-action">Configuração ▾</button>
-            {settingsOpen && (
-              <div className="dropdown-menu absolute right-0 mt-2 w-60 overflow-hidden rounded-2xl border p-2 shadow-2xl">
-                <NavLink to="/configuracoes" className="dropdown-item">Personalização</NavLink>
-                <NavLink to="/backup" className="dropdown-item">Backup</NavLink>
-                <NavLink to="/usuarios" className="dropdown-item">Usuários</NavLink>
-                <div className="my-1 border-t border-current/10" />
-                <a href="https://garagem-saas-react.vercel.app/configuracoes" className="dropdown-item text-xs" target="_blank">Link configurações</a>
-                <a href="https://garagem-saas-react.vercel.app/backup" className="dropdown-item text-xs" target="_blank">Link backup</a>
-                <a href="https://garagem-saas-react.vercel.app/usuarios" className="dropdown-item text-xs" target="_blank">Link usuários</a>
-              </div>
-            )}
-          </div>
+          {role === 'Administrador' && (
+            <div className="relative">
+              <button onClick={()=>setSettingsOpen(v=>!v)} className="top-action">Configuração ▾</button>
+              {settingsOpen && (
+                <div className="dropdown-menu absolute right-0 mt-2 w-60 overflow-hidden rounded-2xl border p-2 shadow-2xl">
+                  <NavLink to="/configuracoes" className="dropdown-item">Personalização</NavLink>
+                  <NavLink to="/backup" className="dropdown-item">Backup</NavLink>
+                  <NavLink to="/usuarios" className="dropdown-item">Usuários</NavLink>
+                  <div className="my-1 border-t border-current/10" />
+                  <a href="https://garagem-saas-react.vercel.app/configuracoes" className="dropdown-item text-xs" target="_blank">Link configurações</a>
+                  <a href="https://garagem-saas-react.vercel.app/backup" className="dropdown-item text-xs" target="_blank">Link backup</a>
+                  <a href="https://garagem-saas-react.vercel.app/usuarios" className="dropdown-item text-xs" target="_blank">Link usuários</a>
+                </div>
+              )}
+            </div>
+          )}
 
           <button onClick={sair} className="top-action danger-action">Sair</button>
         </div>

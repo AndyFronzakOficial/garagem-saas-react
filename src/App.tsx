@@ -18,6 +18,7 @@ import Users from './pages/Users'
 import Settings from './pages/Settings'
 import CustomerHistory from './pages/CustomerHistory'
 import Backup from './pages/Backup'
+import AdminOnly from './components/AdminOnly'
 
 export default function App() {
   return (
@@ -27,20 +28,22 @@ export default function App() {
       <Route path="/portal-terceiro" element={<Portal />} />
       <Route element={<Protected />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
+          <Route element={<AdminOnly />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/financeiro" element={<Finance />} />
+            <Route path="/configuracoes" element={<Settings />} />
+            <Route path="/usuarios" element={<Users />} />
+            <Route path="/backup" element={<Backup />} />
+          </Route>
           <Route path="/clientes" element={<Clients />} />
           <Route path="/leads" element={<Leads />} />
           <Route path="/orcamentos" element={<Quotes />} />
           <Route path="/ordens" element={<Orders />} />
           <Route path="/precos" element={<Prices />} />
-          <Route path="/financeiro" element={<Finance />} />
           <Route path="/estoque" element={<Inventory />} />
           <Route path="/entregas" element={<Deliveries />} />
           <Route path="/kanban" element={<Kanban />} />
-          <Route path="/usuarios" element={<Users />} />
           <Route path="/historico-clientes" element={<CustomerHistory />} />
-          <Route path="/backup" element={<Backup />} />
-          <Route path="/configuracoes" element={<Settings />} />
         </Route>
       </Route>
     </Routes>

@@ -1,8 +1,16 @@
 export const money = (v:number|null|undefined) =>
   new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v||0))
 
-export const brNumber = (v:string|number) =>
-  Number(String(v||'').replace(/\./g,'').replace(',','.')) || 0
+export const brNumber = (v:string|number|null|undefined) => {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0
+  let s = String(v ?? '').trim()
+  if (!s) return 0
+  s = s.replace(/[^0-9,.-]/g, '')
+  if (!s) return 0
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.')
+  else if ((s.match(/\./g) || []).length > 1) s = s.replace(/\./g, '')
+  return Number(s) || 0
+}
 
 export const cmToM = (v:string|number) => brNumber(v) / 100
 

@@ -43,6 +43,7 @@ function servicesDescription(items:any[]){
     return `${index+1}. ${item.service_name || 'Serviço'} - ${formatCm(item.width_cm)} x ${formatCm(item.height_cm)} - ${money(item.estimated_price)}.${obs}`
   }).join('\n')
 }
+function numberInput(v:any){ return Number(String(v ?? '').replace(',','.')) || 0 }
 
 export default function Quotes(){
   const [rows,setRows]=useState<any[]>([])
@@ -55,6 +56,7 @@ export default function Quotes(){
   const [periodValue,setPeriodValue]=useState('')
   const [valueOrder,setValueOrder]=useState('')
   const [selectedIds,setSelectedIds]=useState<string[]>([])
+  const [editQuote,setEditQuote]=useState<any|null>(null)
   const topScrollRef = useRef<HTMLDivElement|null>(null)
   const tableScrollRef = useRef<HTMLDivElement|null>(null)
 
@@ -116,6 +118,82 @@ export default function Quotes(){
     setSelectedIds(checked ? filtered.map(r=>r.id) : [])
   }
 
+  function openEditQuote(r:any){
+    const items = normalizeItems(r).map((item:any)=>({
+      service_name:item.service_name || 'Serviço',
+      width_cm:String(item.width_cm || 0),
+      height_cm:String(item.height_cm || 0),
+      estimated_price:String(item.estimated_price || 0),
+      observation:item.observation || ''
+    }))
+    setEditQuote({
+      id:r.id,
+      quote_number:r.quote_number || '',
+      client_name:r.client_name || '',
+      company:r.company || '',
+      phone:r.phone || '',
+      email:r.email || '',
+      project_name:r.project_name || '',
+      description:r.description || '',
+      status:r.status || 'Novo',
+      items
+    })
+    setMsg('Editando orçamento. Altere os campos e clique em salvar alteração.')
+    window.scrollTo({top:0,behavior:'smooth'})
+  }
+
+  function updateEditQuoteItem(index:number, patch:any){
+    setEditQuote((prev:any)=>{
+      if(!prev) return prev
+      const items = [...prev.items]
+      items[index] = {...items[index],...patch}
+      return {...prev,items}
+    })
+  }
+
+  async function saveEditedQuote(e:React.FormEvent){
+    e.preventDefault()
+    if(!editQuote) return
+    setLoading(true)
+    const items = (editQuote.items || []).map((item:any)=>{
+      const width = numberInput(item.width_cm)
+      const height = numberInput(item.height_cm)
+      return {
+        service_name:item.service_name || 'Serviço',
+        width_cm:width,
+        height_cm:height,
+        width_m:width/100,
+        height_m:height/100,
+        area_m2:(width/100)*(height/100),
+        estimated_price:numberInput(item.estimated_price),
+        observation:item.observation || null
+      }
+    })
+    const first = items[0] || {}
+    const total = items.reduce((sum:number,item:any)=>sum+Number(item.estimated_price || 0),0)
+    const { error } = await supabase.from('public_quotes').update({
+      client_name:editQuote.client_name,
+      company:editQuote.company,
+      phone:editQuote.phone,
+      email:editQuote.email,
+      project_name:editQuote.project_name,
+      description:editQuote.description,
+      status:editQuote.status,
+      quote_items:items,
+      service_name:first.service_name || 'Serviço',
+      width_cm:first.width_cm || 0,
+      height_cm:first.height_cm || 0,
+      width_m:first.width_m || 0,
+      height_m:first.height_m || 0,
+      area_m2:first.area_m2 || 0,
+      estimated_price:total
+    }).eq('id',editQuote.id)
+    if(error) setMsg('Erro ao atualizar orçamento: ' + error.message)
+    else { setMsg('Orçamento atualizado com sucesso.'); setEditQuote(null) }
+    await load()
+    setLoading(false)
+  }
+
   async function deleteSelectedQuotes(){
     if(selectedIds.length === 0){ setMsg('Selecione pelo menos um orçamento para excluir.'); return }
     const ok = confirm(`Excluir ${selectedIds.length} orçamento(s) selecionado(s)? Essa ação não pode ser desfeita.`)
@@ -165,7 +243,8 @@ export default function Quotes(){
       const fileUrl = r.file_url || r.print_file_url || r.drive_link || null
       const total = items.reduce((sum:any,item:any)=>sum+Number(item.estimated_price || 0),0) || Number(r.estimated_price || 0)
 
-      const { error: orderError } = await supabase.from('service_orders').insert({
+      // Cria a OS e retorna o ID para vincular automaticamente no financeiro.
+      const createdOrder = await supabase.from('service_orders').insert({
         os_number:num,
         client_id:clientId,
         service:items.length > 1 ? `${items.length} serviços` : (first.service_name || r.service_name || 'Orçamento'),
@@ -197,14 +276,18 @@ export default function Quotes(){
         priority:'Média',
         due_date:null,
         delivered_at:null
-      })
-      if(orderError) throw new Error('Erro ao criar ordem de serviço: ' + orderError.message)
+      }).select('id,os_number').single()
+      if(createdOrder.error) throw new Error('Erro ao criar ordem de serviço: ' + createdOrder.error.message)
 
+      // Cria a conta a receber já vinculada ao cliente e à OS gerada.
       await supabase.from('accounts_receivable').insert({
         client_id:clientId,
+        service_order_id:createdOrder.data.id,
         title:`${num} - ${r.project_name || first.service_name || 'Orçamento'}`,
         due_date:today(),
         amount:total,
+        paid_amount:0,
+        pending_amount:total,
         reference:new Date().toLocaleDateString('pt-BR',{month:'2-digit',year:'numeric'}),
         status:'Aberto'
       })
@@ -296,6 +379,36 @@ export default function Quotes(){
 
       {msg && <div className="mb-4 rounded-xl border border-gold/30 bg-gold/10 p-4 text-gold">{msg}</div>}
 
+      {editQuote && (
+        <form onSubmit={saveEditedQuote} className="card mb-5 space-y-4">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div><h2 className="text-2xl font-black">Editar orçamento {editQuote.quote_number}</h2><p className="text-zinc-400">Atualize os dados do cliente, projeto e serviços.</p></div>
+            <button type="button" className="btn-dark" onClick={()=>setEditQuote(null)}>Cancelar edição</button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-4">
+            <input className="input" placeholder="Cliente" value={editQuote.client_name} onChange={e=>setEditQuote({...editQuote,client_name:e.target.value})}/>
+            <input className="input" placeholder="Empresa" value={editQuote.company} onChange={e=>setEditQuote({...editQuote,company:e.target.value})}/>
+            <input className="input" placeholder="Telefone" value={editQuote.phone} onChange={e=>setEditQuote({...editQuote,phone:e.target.value})}/>
+            <input className="input" placeholder="E-mail" value={editQuote.email} onChange={e=>setEditQuote({...editQuote,email:e.target.value})}/>
+            <input className="input md:col-span-2" placeholder="Projeto" value={editQuote.project_name} onChange={e=>setEditQuote({...editQuote,project_name:e.target.value})}/>
+            <select className="input" value={editQuote.status} onChange={e=>setEditQuote({...editQuote,status:e.target.value})}><option>Novo</option><option>Em análise</option><option>Convertido</option><option>Recusado</option></select>
+            <input className="input" placeholder="Descrição" value={editQuote.description} onChange={e=>setEditQuote({...editQuote,description:e.target.value})}/>
+          </div>
+          <div className="grid gap-3">
+            {(editQuote.items || []).map((item:any,index:number)=>(
+              <div key={index} className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 md:grid-cols-5">
+                <input className="input" placeholder="Serviço" value={item.service_name} onChange={e=>updateEditQuoteItem(index,{service_name:e.target.value})}/>
+                <input className="input" placeholder="Largura cm" value={item.width_cm} onChange={e=>updateEditQuoteItem(index,{width_cm:e.target.value})}/>
+                <input className="input" placeholder="Altura cm" value={item.height_cm} onChange={e=>updateEditQuoteItem(index,{height_cm:e.target.value})}/>
+                <input className="input" placeholder="Valor" value={item.estimated_price} onChange={e=>updateEditQuoteItem(index,{estimated_price:e.target.value})}/>
+                <input className="input" placeholder="Observação" value={item.observation} onChange={e=>updateEditQuoteItem(index,{observation:e.target.value})}/>
+              </div>
+            ))}
+          </div>
+          <button className="btn-gold">Salvar alteração</button>
+        </form>
+      )}
+
       <section className="card mb-5 grid gap-3 md:grid-cols-6">
         <input className="input md:col-span-2" placeholder="Buscar por nome, cliente, projeto, serviço ou telefone..." value={search} onChange={e=>setSearch(e.target.value)}/>
         <select className="input" value={periodType} onChange={e=>{setPeriodType(e.target.value); setPeriodValue('')}}>
@@ -357,7 +470,7 @@ export default function Quotes(){
                       <option>Novo</option><option>Em análise</option><option>Convertido</option><option>Recusado</option>
                     </select>
                   </td>
-                  <td><div className="grid gap-2"><button className="btn-dark" onClick={()=>quotePdf(r)}>PDF Orçamento</button><button disabled={loading || r.status === 'Convertido'} className="btn-gold" onClick={()=>convertToOrder(r)}>{r.status === 'Convertido' ? 'Convertido' : 'Converter OS'}</button></div></td>
+                  <td><div className="grid gap-2"><button className="btn-dark" onClick={()=>openEditQuote(r)}>Editar</button><button className="btn-dark" onClick={()=>quotePdf(r)}>PDF Orçamento</button><button disabled={loading || r.status === 'Convertido'} className="btn-gold" onClick={()=>convertToOrder(r)}>{r.status === 'Convertido' ? 'Convertido' : 'Converter OS'}</button></div></td>
                 </tr>
               )
             })}
