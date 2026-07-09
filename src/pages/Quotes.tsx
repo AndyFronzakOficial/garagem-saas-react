@@ -23,24 +23,42 @@ async function imageToDataURL(url:string){
   }catch{ return '' }
 }
 function normalizeItems(r:any){
-  if(Array.isArray(r.quote_items) && r.quote_items.length) return r.quote_items
+  if(Array.isArray(r.quote_items) && r.quote_items.length){
+    // Mantém compatibilidade com orçamentos antigos e garante quantidade mínima 1.
+    return r.quote_items.map((item:any)=>({
+      ...item,
+      pricing_type:item.pricing_type || 'm2',
+      quantity:Number(item.quantity || 1) || 1,
+      unit_price:item.unit_price || item.price_m2 || 0
+    }))
+  }
   return [{
     service_price_id:r.service_price_id,
     service_name:r.service_name || r.service || 'Serviço',
+    pricing_type:r.pricing_type || 'm2',
+    quantity:Number(r.quantity || 1) || 1,
     width_cm:Number(r.width_cm || 0) || Number(r.width_m || 0) * 100,
     height_cm:Number(r.height_cm || 0) || Number(r.height_m || 0) * 100,
     width_m:Number(r.width_m || 0) || Number(r.width_cm || 0) / 100,
     height_m:Number(r.height_m || 0) || Number(r.height_cm || 0) / 100,
     area_m2:Number(r.area_m2 || 0),
     price_m2:r.price_m2 || 0,
+    unit_price:r.unit_price || r.price_m2 || 0,
     estimated_price:r.estimated_price || 0,
     observation:r.description || null
   }]
 }
+
+function itemDetails(item:any){
+  const quantity = Number(item.quantity || 1) || 1
+  if(item.pricing_type === 'quantity') return `Qtd: ${quantity} | Precificação por quantidade`
+  return `Qtd: ${quantity} | Medidas: ${formatCm(item.width_cm)} x ${formatCm(item.height_cm)} | Área: ${Number(item.area_m2 || 0).toFixed(2)} m²`
+}
+
 function servicesDescription(items:any[]){
   return items.map((item,index)=>{
     const obs = item.observation ? ` Obs: ${item.observation}` : ''
-    return `${index+1}. ${item.service_name || 'Serviço'} - ${formatCm(item.width_cm)} x ${formatCm(item.height_cm)} - ${money(item.estimated_price)}.${obs}`
+    return `${index+1}. ${item.service_name || 'Serviço'} - ${itemDetails(item)} - ${money(item.estimated_price)}.${obs}`
   }).join('\n')
 }
 function numberInput(v:any){ return Number(String(v ?? '').replace(',','.')) || 0 }
@@ -121,6 +139,8 @@ export default function Quotes(){
   function openEditQuote(r:any){
     const items = normalizeItems(r).map((item:any)=>({
       service_name:item.service_name || 'Serviço',
+      pricing_type:item.pricing_type || 'm2',
+      quantity:String(item.quantity || 1),
       width_cm:String(item.width_cm || 0),
       height_cm:String(item.height_cm || 0),
       estimated_price:String(item.estimated_price || 0),
@@ -160,6 +180,8 @@ export default function Quotes(){
       const height = numberInput(item.height_cm)
       return {
         service_name:item.service_name || 'Serviço',
+        pricing_type:item.pricing_type || 'm2',
+        quantity:Math.max(numberInput(item.quantity) || 1,1),
         width_cm:width,
         height_cm:height,
         width_m:width/100,
@@ -185,7 +207,7 @@ export default function Quotes(){
       height_cm:first.height_cm || 0,
       width_m:first.width_m || 0,
       height_m:first.height_m || 0,
-      area_m2:first.area_m2 || 0,
+      area_m2:items.reduce((sum:number,item:any)=>sum+Number(item.area_m2 || 0),0),
       estimated_price:total
     }).eq('id',editQuote.id)
     if(error) setMsg('Erro ao atualizar orçamento: ' + error.message)
@@ -342,7 +364,7 @@ export default function Quotes(){
       pdf.setFont('helvetica','bold')
       pdf.text(`${index+1}. ${item.service_name || 'Serviço'}`,10,y)
       pdf.setFont('helvetica','normal')
-      pdf.text(`Medidas: ${formatCm(item.width_cm)} x ${formatCm(item.height_cm)} | Área: ${Number(item.area_m2 || 0).toFixed(2)} m²`,10,y+6)
+      pdf.text(itemDetails(item),10,y+6)
       pdf.text(`Valor: ${money(item.estimated_price)}`,150,y+6)
       const obs = item.observation || 'Sem observação.'
       pdf.text(pdf.splitTextToSize(`Observação: ${obs}`,185),10,y+12)
@@ -396,12 +418,17 @@ export default function Quotes(){
           </div>
           <div className="grid gap-3">
             {(editQuote.items || []).map((item:any,index:number)=>(
-              <div key={index} className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 md:grid-cols-5">
+              <div key={index} className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 md:grid-cols-6">
                 <input className="input" placeholder="Serviço" value={item.service_name} onChange={e=>updateEditQuoteItem(index,{service_name:e.target.value})}/>
+                <select className="input" value={item.pricing_type || 'm2'} onChange={e=>updateEditQuoteItem(index,{pricing_type:e.target.value})}>
+                  <option value="m2">Por m²</option>
+                  <option value="quantity">Por quantidade</option>
+                </select>
+                <input className="input" placeholder="Quantidade" value={item.quantity || '1'} onChange={e=>updateEditQuoteItem(index,{quantity:e.target.value})}/>
                 <input className="input" placeholder="Largura cm" value={item.width_cm} onChange={e=>updateEditQuoteItem(index,{width_cm:e.target.value})}/>
                 <input className="input" placeholder="Altura cm" value={item.height_cm} onChange={e=>updateEditQuoteItem(index,{height_cm:e.target.value})}/>
                 <input className="input" placeholder="Valor" value={item.estimated_price} onChange={e=>updateEditQuoteItem(index,{estimated_price:e.target.value})}/>
-                <input className="input" placeholder="Observação" value={item.observation} onChange={e=>updateEditQuoteItem(index,{observation:e.target.value})}/>
+                <input className="input md:col-span-6" placeholder="Observação" value={item.observation} onChange={e=>updateEditQuoteItem(index,{observation:e.target.value})}/>
               </div>
             ))}
           </div>
@@ -454,7 +481,7 @@ export default function Quotes(){
                       {items.map((item:any,index:number)=>(
                         <div key={index} className="rounded-xl border border-white/10 bg-black/20 p-2">
                           <strong>{index+1}. {item.service_name}</strong><br/>
-                          <small>{formatCm(item.width_cm)} x {formatCm(item.height_cm)} • {money(item.estimated_price)}</small><br/>
+                          <small>{itemDetails(item)} • {money(item.estimated_price)}</small><br/>
                           {item.observation && <small className="text-zinc-400">Obs: {item.observation}</small>}
                         </div>
                       ))}

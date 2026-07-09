@@ -77,9 +77,18 @@ async function addProjectImageToPdf(pdf:jsPDF, imageUrl?:string|null){
 
 
 function normalizeItems(o:any){
-  if(Array.isArray(o.quote_items) && o.quote_items.length) return o.quote_items
+  if(Array.isArray(o.quote_items) && o.quote_items.length){
+    // Normaliza itens novos e antigos para o PDF e para a tela não quebrarem.
+    return o.quote_items.map((item:any)=>({
+      ...item,
+      pricing_type:item.pricing_type || 'm2',
+      quantity:Number(item.quantity || 1) || 1
+    }))
+  }
   return [{
     service_name:o.service || o.service_type || 'Serviço',
+    pricing_type:o.pricing_type || 'm2',
+    quantity:Number(o.quantity || 1) || 1,
     width_cm:Number(o.width_cm || 0) || Number(o.width_m || 0) * 100,
     height_cm:Number(o.height_cm || 0) || Number(o.height_m || 0) * 100,
     area_m2:Number(o.area_m2 || 0),
@@ -91,6 +100,13 @@ function normalizeItems(o:any){
 function formatCm(v:any){
   return `${Number(v || 0).toFixed(0)}cm`
 }
+
+function itemDetails(item:any){
+  const quantity = Number(item.quantity || 1) || 1
+  if(item.pricing_type === 'quantity') return `Qtd: ${quantity} | Precificação por quantidade`
+  return `Qtd: ${quantity} | Medidas: ${formatCm(item.width_cm)} x ${formatCm(item.height_cm)} | Área: ${Number(item.area_m2 || 0).toFixed(2)} m²`
+}
+
 function numberInput(v:any){ return Number(String(v ?? '').replace(',','.')) || 0 }
 
 export default function Orders(){
@@ -409,8 +425,11 @@ export default function Orders(){
       pdf.setFont('helvetica','bold')
       pdf.text(`${index+1}. ${item.service_name || 'Serviço'}`,10,y)
       pdf.setFont('helvetica','normal')
-      pdf.text(`Medidas: ${formatCm(item.width_cm)} x ${formatCm(item.height_cm)} | Área: ${Number(item.area_m2 || 0).toFixed(2)} m²`,10,y+5)
-      pdf.text(`Valor: ${money(item.estimated_price)}`,74,y+5)
+      pdf.text(itemDetails(item),10,y+5)
+      if(!production){
+        // No PDF de produção não mostramos valores para a equipe da produção.
+        pdf.text(`Valor: ${money(item.estimated_price)}`,74,y+5)
+      }
       const obs = item.observation || (index === 0 ? o.description : '') || 'Sem observação.'
       const obsLines = pdf.splitTextToSize(`Obs: ${obs}`,92)
       pdf.text(obsLines,10,y+10)
@@ -423,8 +442,13 @@ export default function Orders(){
 
     pdf.setFontSize(9)
     pdf.text(`Prioridade: ${o.priority || 'Média'}`,132,128)
-    pdf.text(`Valor total: ${money(o.estimated_price)}`,132,136)
-    pdf.text(`Acabamento: ${o.finishing || '-'}`,132,144)
+    if(!production){
+      // Valor total aparece apenas na OS completa, nunca na ordem de produção.
+      pdf.text(`Valor total: ${money(o.estimated_price)}`,132,136)
+      pdf.text(`Acabamento: ${o.finishing || '-'}`,132,144)
+    }else{
+      pdf.text(`Acabamento: ${o.finishing || '-'}`,132,136)
+    }
 
     await addProjectImageToPdf(pdf,o.approved_art_image_url || o.project_image_url)
 
@@ -606,7 +630,7 @@ export default function Orders(){
                       <div className="mt-2 grid gap-1">
                         {r.quote_items.slice(0,3).map((item:any,index:number)=>(
                           <small key={index} className="block rounded-lg border border-white/10 bg-black/20 p-1 text-zinc-300">
-                            {index+1}. {item.service_name} • {formatCm(item.width_cm)} x {formatCm(item.height_cm)} • {money(item.estimated_price)}
+                            {index+1}. {item.service_name} • {itemDetails(item)} • {money(item.estimated_price)}
                           </small>
                         ))}
                       </div>

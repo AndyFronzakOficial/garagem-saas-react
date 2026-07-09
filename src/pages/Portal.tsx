@@ -16,7 +16,7 @@ export default function Portal() {
   const [msg, setMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [loading, setLoading] = useState(false)
-  const [f, setF] = useState({service_price_id:'',service:'',width_cm:'',height_cm:'',description:''})
+  const [f, setF] = useState({service_price_id:'',service:'',quantity:'1',width_cm:'',height_cm:'',description:''})
   const [signingOrder,setSigningOrder]=useState<any>(null)
   const [artRevisionNote,setArtRevisionNote]=useState('')
   const [theme,setTheme]=useState<'dark'|'light'>(()=>(localStorage.getItem('portal-theme') as 'dark'|'light') || 'dark')
@@ -44,7 +44,11 @@ export default function Portal() {
   const widthM=cmToM(f.width_cm)
   const heightM=cmToM(f.height_cm)
   const area=widthM*heightM
-  const total=area*Number(service?.price_m2_partner||0)
+  const quantity=Math.max(brNumber(f.quantity) || 1,1)
+  const isQuantityService=service?.pricing_type === 'quantity'
+  // Portal terceiro também respeita a precificação por quantidade.
+  const total=isQuantityService ? quantity*Number(service?.price_m2_partner||0) : area*quantity*Number(service?.price_m2_partner||0)
+  const pricingUnit=(s:any)=>s?.pricing_type === 'quantity' ? 'un' : 'm²'
 
   async function uploadToDrive(osNumber:string){
     if(!file) return {fileUrl:null,driveFileId:null,driveFileName:null,driveFolderId:null}
@@ -102,9 +106,9 @@ export default function Portal() {
       if(!service || !client){ setErrorMsg('Cliente ou serviço inválido.'); return }
       const num=await nextOSNumber()
       const uploaded=await uploadToDrive(num)
-      const {error}=await supabase.from('service_orders').insert({os_number:num,client_id:client.id,service:f.service||service.name,service_price_id:service.id,service_type:service.name,width_m:widthM,height_m:heightM,width_cm:brNumber(f.width_cm),height_cm:brNumber(f.height_cm),area_m2:area,price_m2:service.price_m2_partner,estimated_price:total,measures:`${brNumber(f.width_cm).toFixed(0)}cm x ${brNumber(f.height_cm).toFixed(0)}cm`,finishing:'Sem acabamento',description:f.description||null,print_file_url:uploaded.fileUrl,drive_file_id:uploaded.driveFileId,drive_file_name:uploaded.driveFileName,drive_folder_id:uploaded.driveFolderId,source:'Cliente',status:'Orçamento',priority:'Média'})
+      const {error}=await supabase.from('service_orders').insert({os_number:num,client_id:client.id,service:f.service||service.name,service_price_id:service.id,service_type:service.name,width_m:widthM,height_m:heightM,width_cm:brNumber(f.width_cm),height_cm:brNumber(f.height_cm),area_m2:area,price_m2:service.price_m2_partner,estimated_price:total,measures:isQuantityService ? `${quantity} unidade(s)` : `${brNumber(f.width_cm).toFixed(0)}cm x ${brNumber(f.height_cm).toFixed(0)}cm`,finishing:'Sem acabamento',description:f.description||null,quote_items:[{service_price_id:service.id,service_name:f.service||service.name,pricing_type:service.pricing_type||'m2',quantity,width_cm:brNumber(f.width_cm),height_cm:brNumber(f.height_cm),width_m:widthM,height_m:heightM,area_m2:area,price_m2:service.price_m2_partner,unit_price:service.price_m2_partner,estimated_price:total,observation:f.description||null}],print_file_url:uploaded.fileUrl,drive_file_id:uploaded.driveFileId,drive_file_name:uploaded.driveFileName,drive_folder_id:uploaded.driveFolderId,source:'Cliente',status:'Orçamento',priority:'Média'})
       if(error){ setErrorMsg('Erro ao salvar orçamento: '+error.message); return }
-      setMsg(`Orçamento cadastrado: ${num} - ${money(total)}`); setFile(null); setF({service_price_id:'',service:'',width_cm:'',height_cm:'',description:''}); await loadOrders(client.id)
+      setMsg(`Orçamento cadastrado: ${num} - ${money(total)}`); setFile(null); setF({service_price_id:'',service:'',quantity:'1',width_cm:'',height_cm:'',description:''}); await loadOrders(client.id)
     }catch(err:any){ setErrorMsg(err.message || 'Erro ao enviar serviço.') }
     finally{ setLoading(false) }
   }
@@ -158,15 +162,16 @@ export default function Portal() {
 
         <section id="cadastro-orcamento" className="client-card scroll-mt-28">
           <h1 className="text-3xl font-black text-strong">Cadastrar orçamento</h1>
-          <p className="mt-1 muted-text">Informe as medidas em centímetros. Exemplo: 120 x 80.</p>
+          <p className="mt-1 muted-text">Informe medidas para itens por m² ou quantidade para itens por unidade.</p>
           <form onSubmit={save} className="client-grid mt-6">
             <select className="input full" value={f.service_price_id} onChange={e=>setF({...f,service_price_id:e.target.value})} required>
               <option value="">Serviço</option>
-              {services.map(s=><option key={s.id} value={s.id}>{s.name} - {money(s.price_m2_partner)}/m²</option>)}
+              {services.map(s=><option key={s.id} value={s.id}>{s.name} - {money(s.price_m2_partner)}/{pricingUnit(s)}</option>)}
             </select>
             <input className="input full" placeholder="Nome do serviço" value={f.service} onChange={e=>setF({...f,service:e.target.value})}/>
-            <input className="input" placeholder="Largura em cm. Ex: 120" value={f.width_cm} onChange={e=>setF({...f,width_cm:e.target.value})} required/>
-            <input className="input" placeholder="Altura em cm. Ex: 80" value={f.height_cm} onChange={e=>setF({...f,height_cm:e.target.value})} required/>
+            <input className="input" placeholder="Quantidade. Ex: 1, 2, 10" value={f.quantity} onChange={e=>setF({...f,quantity:e.target.value})} required/>
+            <input className="input" placeholder="Largura em cm. Ex: 120" value={f.width_cm} onChange={e=>setF({...f,width_cm:e.target.value})} required={!isQuantityService}/>
+            <input className="input" placeholder="Altura em cm. Ex: 80" value={f.height_cm} onChange={e=>setF({...f,height_cm:e.target.value})} required={!isQuantityService}/>
             <textarea className="input full" placeholder="Descrição" value={f.description} onChange={e=>setF({...f,description:e.target.value})}/>
             <div className="full">
               <label className="mb-2 block text-sm muted-text">Arquivo da arte</label>
@@ -177,7 +182,7 @@ export default function Portal() {
               {file&&<p className="mt-2 text-sm muted-text">Arquivo selecionado: {file.name}</p>}
             </div>
             <div className="price-preview full p-5">
-              <div>Área: {area.toFixed(2)} m²</div>
+              <div>Qtd: {quantity} • {isQuantityService ? 'Cálculo por quantidade' : `Área: ${area.toFixed(2)} m²`}</div>
               <strong>{money(total)}</strong>
             </div>
             <button disabled={loading} className="btn-gold full">{loading?'Enviando...':'Enviar orçamento'}</button>
