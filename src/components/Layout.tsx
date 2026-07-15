@@ -13,6 +13,7 @@ const sideLinks = [
   {to:'/kanban', label:'Kanban', roles:['Administrador','Produção','Funcionário']},
   {to:'/precos', label:'Precificação', roles:['Administrador','Financeiro']},
   {to:'/financeiro', label:'Financeiro', roles:['Administrador']},
+  {to:'/relatorios', label:'Relatórios', roles:['Administrador']},
   {to:'/estoque', label:'Estoque', roles:['Administrador','Produção','Funcionário']},
   {to:'/entregas', label:'Entrega/Instalação', roles:['Administrador','Produção','Funcionário']},
 
@@ -29,6 +30,7 @@ const pageTitles: Record<string,string> = {
   '/kanban':'Kanban de Produção',
   '/precos':'Precificação',
   '/financeiro':'Financeiro',
+  '/relatorios':'Relatórios Avançados',
   '/estoque':'Estoque',
   '/entregas':'Entrega',
   '/usuarios':'Usuários',

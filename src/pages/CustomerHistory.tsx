@@ -98,22 +98,101 @@ export default function CustomerHistory(){
   function downloadContract(order:any){
     const client = order.clients || selectedClient || {}
     const pdf=new jsPDF('p','mm','a4')
-    pdf.setFontSize(16); pdf.text('TERMO DE APROVAÇÃO DE ARTE E ORDEM DE SERVIÇO',12,18)
+
+    // Aqui calculamos a entrada mínima obrigatória de 50% para iniciar a produção.
+    const total = Number(order.estimated_price || 0)
+    const entradaMinima = total * 0.5
+    const saldoRestante = Math.max(total - entradaMinima,0)
+
+    // Cabeçalho profissional do contrato simplificado.
+    pdf.setFillColor(18,18,18)
+    pdf.rect(0,0,210,28,'F')
+    pdf.setTextColor(244,197,66)
+    pdf.setFont('helvetica','bold')
+    pdf.setFontSize(14)
+    pdf.text(company?.company_name || company?.name || 'Garagem Comunicação Visual',12,12)
+    pdf.setTextColor(255,255,255)
     pdf.setFontSize(10)
-    pdf.text(`Empresa: ${company?.name || 'Garagem ERP'}`,12,30)
-    pdf.text(`Cliente: ${client?.name || client?.company || '-'}`,12,40)
-    pdf.text(`Empresa do cliente: ${client?.company || '-'}`,12,48)
-    pdf.text(`OS: ${order.os_number || '-'}`,12,56)
-    pdf.text(`Valor: ${money(order.estimated_price)}`,12,64)
-    const text='Ao aprovar este documento, o cliente declara que conferiu a arte, medidas, textos, cores, informações, serviços e condições da ordem de serviço. Após a aprovação, alterações podem gerar novo prazo e custo adicional conforme análise da empresa.'
-    pdf.text(pdf.splitTextToSize(text,180),12,80)
-    pdf.text(`Status da aprovação: ${order.art_approval_status || 'Pendente'}`,12,112)
-    pdf.text(`Data/hora da assinatura: ${brDateTime(order.art_approved_at)}`,12,120)
-    if(order.art_approval_signature){
-      try{ pdf.addImage(order.art_approval_signature,'PNG',20,138,75,32) }catch{}
+    pdf.text('CONTRATO SIMPLIFICADO DE PRESTAÇÃO DE SERVIÇOS',12,20)
+    pdf.text('COMUNICAÇÃO VISUAL',145,20)
+
+    pdf.setTextColor(0,0,0)
+    pdf.setFont('helvetica','normal')
+    pdf.setFontSize(9)
+
+    let y = 38
+
+    // Função auxiliar para escrever textos longos sem estourar a largura do PDF.
+    function paragraph(title:string,text:string){
+      if(y > 260){ pdf.addPage(); y = 18 }
+      pdf.setFont('helvetica','bold')
+      pdf.text(title,12,y)
+      y += 6
+      pdf.setFont('helvetica','normal')
+      const lines = pdf.splitTextToSize(text,186)
+      pdf.text(lines,12,y)
+      y += lines.length * 5 + 5
     }
-    pdf.line(20,174,100,174); pdf.text('Assinatura do Cliente',38,182)
-    pdf.text(`Emitido em: ${new Date().toLocaleString('pt-BR')}`,12,198)
+
+    // Dados principais do contrato.
+    pdf.setFont('helvetica','bold')
+    pdf.text('DADOS DO CONTRATO',12,y)
+    y += 7
+    pdf.setFont('helvetica','normal')
+    pdf.text(`Cliente: ${client?.name || client?.company || '-'}`,12,y); y += 6
+    pdf.text(`Empresa do cliente: ${client?.company || '-'}`,12,y); y += 6
+    pdf.text(`OS: ${order.os_number || '-'}`,12,y); y += 6
+    pdf.text(`Serviço: ${order.service || order.service_type || '-'}`,12,y); y += 6
+    pdf.text(`Valor total aprovado: ${money(total)}`,12,y); y += 6
+    pdf.text(`Entrada mínima obrigatória de 50%: ${money(entradaMinima)}`,12,y); y += 6
+    pdf.text(`Saldo restante previsto: ${money(saldoRestante)}`,12,y); y += 9
+
+    paragraph('1. Objeto',
+      'O presente contrato tem como objeto a prestação de serviços de comunicação visual, incluindo criação, produção, impressão, acabamento, instalação ou outros serviços descritos na ordem de serviço aprovada pelo cliente.'
+    )
+
+    paragraph('2. Aprovação de arte e informações',
+      'Ao aprovar este documento, o cliente declara que conferiu arte, textos, medidas, cores, quantidades, materiais, acabamentos, prazos e demais informações. Após a aprovação, qualquer alteração poderá gerar novo prazo e custo adicional.'
+    )
+
+    paragraph('3. Condição de pagamento - entrada mínima de 50%',
+      `Para início da produção, compra de materiais, reserva de agenda ou execução do serviço, deverá haver pagamento mínimo de 50% do valor total aprovado, correspondente neste contrato a ${money(entradaMinima)}. O saldo restante deverá ser quitado antes da entrega, retirada ou instalação do material, salvo acordo formal registrado entre as partes.`
+    )
+
+    paragraph('4. Prazos e execução',
+      'Os prazos de produção começam a contar após a aprovação da arte, confirmação das informações necessárias e identificação do pagamento mínimo exigido. Atrasos causados por falta de aprovação, envio de arquivos incorretos, ausência de pagamento ou mudanças solicitadas pelo cliente poderão alterar o prazo final.'
+    )
+
+    paragraph('5. Responsabilidade do cliente',
+      'O cliente é responsável pela conferência de nomes, telefones, endereços, medidas, ortografia, cores desejadas, arquivos enviados e autorizações de uso de marcas, imagens e conteúdos. A empresa não se responsabiliza por erros aprovados previamente pelo cliente.'
+    )
+
+    paragraph('6. Cancelamento e alterações',
+      'Após a aprovação e início da produção, valores referentes a materiais, impressão, mão de obra, deslocamentos e etapas já executadas poderão ser retidos. Alterações solicitadas depois da aprovação serão analisadas e poderão gerar cobrança adicional.'
+    )
+
+    paragraph('7. Validade e aceite',
+      'Este contrato simplificado passa a valer a partir da aprovação da ordem de serviço, assinatura física/digital, confirmação por mensagem ou pagamento da entrada. O aceite indica concordância com as condições descritas acima.'
+    )
+
+    pdf.setFont('helvetica','normal')
+    pdf.text(`Status da aprovação: ${order.art_approval_status || 'Pendente'}`,12,y); y += 6
+    pdf.text(`Data/hora da assinatura: ${brDateTime(order.art_approved_at)}`,12,y); y += 10
+
+    if(order.art_approval_signature){
+      try{ pdf.addImage(order.art_approval_signature,'PNG',18,y,78,32) }catch{}
+      y += 38
+    }else{
+      y += 22
+    }
+
+    pdf.line(20,y,98,y)
+    pdf.text('Assinatura do Cliente',36,y+7)
+    pdf.line(112,y,190,y)
+    pdf.text('Responsável pela Empresa',128,y+7)
+
+    pdf.setFontSize(8)
+    pdf.text(`Emitido em: ${new Date().toLocaleString('pt-BR')}`,12,287)
     pdf.save(`contrato-${order.os_number || 'cliente'}.pdf`)
   }
 

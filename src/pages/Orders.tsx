@@ -678,8 +678,11 @@ export default function Orders(){
                           <small className="break-all text-zinc-400">{r.invoice_file_name || 'Nota fiscal anexada'}</small>
                         </div>
                       ) : <small className="text-zinc-500">Nenhuma NF anexada.</small>}
+                      <a className="btn-gold mt-2 block text-center" href={`/notas-fiscais?os=${r.id}`}>
+                        Preparar / emitir pela tela
+                      </a>
                       <label className="btn-dark mt-2 block cursor-pointer text-center">
-                        {r.invoice_file_url ? 'Alterar nota fiscal' : 'Emitir nota fiscal'}
+                        {r.invoice_file_url ? 'Alterar anexo da NF' : 'Anexar NF pronta'}
                         <input className="hidden" type="file" accept=".pdf,.xml,image/*" onChange={e=>{ const f=e.target.files?.[0]; if(f) uploadInvoice(r,f); e.currentTarget.value='' }}/>
                       </label>
                     </div>

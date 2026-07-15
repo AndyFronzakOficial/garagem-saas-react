@@ -11,6 +11,7 @@ import Quotes from './pages/Quotes'
 import Orders from './pages/Orders'
 import Portal from './pages/Portal'
 import Finance from './pages/Finance'
+import Reports from './pages/Reports'
 import Inventory from './pages/Inventory'
 import Deliveries from './pages/Deliveries'
 import Kanban from './pages/Kanban'
@@ -31,6 +32,7 @@ export default function App() {
           <Route element={<AdminOnly />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/financeiro" element={<Finance />} />
+            <Route path="/relatorios" element={<Reports />} />
             <Route path="/configuracoes" element={<Settings />} />
             <Route path="/usuarios" element={<Users />} />
             <Route path="/backup" element={<Backup />} />

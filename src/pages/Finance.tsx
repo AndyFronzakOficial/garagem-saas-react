@@ -458,13 +458,13 @@ export default function Finance(){
       {msg&&<div className="mb-4 rounded-xl border border-gold/30 bg-gold/10 p-3 text-gold">{msg}</div>}
 
       <section className="mb-5 grid gap-4 md:grid-cols-4 xl:grid-cols-7">
-        <article className="card"><small>Entradas recebidas</small><h2 className="text-sm font-black">{money(entradas)}</h2></article>
-        <article className="card"><small>Saídas pagas</small><h2 className="text-sm font-black">{money(saidas)}</h2></article>
-        <article className="card"><small>Saldo real</small><h2 className="text-sm font-black">{money(saldo)}</h2></article>
-        <article className="card"><small>Total a receber</small><h2 className="text-sm font-black">{money(totalReceber)}</h2></article>
-        <article className="card"><small>Falta receber</small><h2 className="text-sm font-black">{money(aReceber)}</h2></article>
-        <article className="card"><small>Falta pagar</small><h2 className="text-sm font-black">{money(aPagar)}</h2></article>
-        <article className="card"><small>Vencidas</small><h2 className="text-sm font-black">{vencidasReceber.length+vencidasPagar.length}</h2></article>
+        <article className="card"><small>Entradas recebidas</small><h2 className="text-2xl font-black">{money(entradas)}</h2></article>
+        <article className="card"><small>Saídas pagas</small><h2 className="text-2xl font-black">{money(saidas)}</h2></article>
+        <article className="card"><small>Saldo real</small><h2 className="text-2xl font-black">{money(saldo)}</h2></article>
+        <article className="card"><small>Total a receber</small><h2 className="text-2xl font-black">{money(totalReceber)}</h2></article>
+        <article className="card"><small>Falta receber</small><h2 className="text-2xl font-black">{money(aReceber)}</h2></article>
+        <article className="card"><small>Falta pagar</small><h2 className="text-2xl font-black">{money(aPagar)}</h2></article>
+        <article className="card"><small>Vencidas</small><h2 className="text-2xl font-black">{vencidasReceber.length+vencidasPagar.length}</h2></article>
       </section>
 
       <div className="mb-5 flex flex-wrap gap-3">
@@ -509,9 +509,9 @@ export default function Finance(){
       {tab==='custos' ? (
         <div>
           <section className="mb-5 grid gap-4 md:grid-cols-3">
-            <article className="card"><small>Vendas em OS</small><h2 className="text-sm font-black">{money(orderTotals.sales)}</h2></article>
-            <article className="card"><small>Custos lançados</small><h2 className="text-sm font-black">{money(orderTotals.costs)}</h2></article>
-            <article className="card"><small>Lucro estimado</small><h2 className="text-sm font-black">{money(orderTotals.sales-orderTotals.costs)}</h2></article>
+            <article className="card"><small>Vendas em OS</small><h2 className="text-2xl font-black">{money(orderTotals.sales)}</h2></article>
+            <article className="card"><small>Custos lançados</small><h2 className="text-2xl font-black">{money(orderTotals.costs)}</h2></article>
+            <article className="card"><small>Lucro estimado</small><h2 className="text-2xl font-black">{money(orderTotals.sales-orderTotals.costs)}</h2></article>
           </section>
 
           <div className="card table-wrap">
@@ -555,7 +555,7 @@ export default function Finance(){
       ) : tab==='relatorio' ? (
         <div className="grid gap-5 xl:grid-cols-2">
           <section className="card table-wrap">
-            <h2 className="mb-3 text-sm font-black">Clientes que faltam pagar</h2>
+            <h2 className="mb-3 text-2xl font-black">Clientes que faltam pagar</h2>
             <table>
               <thead><tr><th>Cliente</th><th>Total</th><th>Já pagou</th><th>Falta</th></tr></thead>
               <tbody>
@@ -566,7 +566,7 @@ export default function Finance(){
           </section>
 
           <section className="card table-wrap">
-            <h2 className="mb-3 text-sm font-black">Contas para vencer</h2>
+            <h2 className="mb-3 text-2xl font-black">Contas para vencer</h2>
             <table>
               <thead><tr><th>Tipo</th><th>Cliente/Fornecedor</th><th>Título</th><th>Vencimento</th><th>Pendente</th></tr></thead>
               <tbody>
