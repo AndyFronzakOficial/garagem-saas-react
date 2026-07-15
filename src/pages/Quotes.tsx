@@ -63,6 +63,40 @@ function servicesDescription(items:any[]){
 }
 function numberInput(v:any){ return Number(String(v ?? '').replace(',','.')) || 0 }
 
+function blankEditItem(){
+  return {
+    service_name:'',
+    service_price_id:null,
+    pricing_type:'m2',
+    quantity:'1',
+    width_cm:'0',
+    height_cm:'0',
+    estimated_price:'0',
+    observation:'',
+    price_m2:0,
+    unit_price:0
+  }
+}
+
+async function uploadEditedProjectImage(file:File, quoteCode:string){
+  // Envia a nova imagem do orçamento para o mesmo bucket usado pelo PDV.
+  if(!file.type.startsWith('image/')) throw new Error('A nova imagem precisa ser um arquivo de imagem.')
+  if(file.size > 50 * 1024 * 1024) throw new Error('A nova imagem precisa ter no máximo 50MB.')
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+  const safeCode = String(quoteCode || 'orcamento').replace(/[^a-zA-Z0-9_-]/g,'-')
+  const path = `public-quotes/${safeCode}/imagem-projeto-editada-${Date.now()}.${ext}`
+
+  const { error } = await supabase.storage.from('os-files').upload(path,file,{
+    upsert:false,
+    contentType:file.type || 'image/jpeg'
+  })
+  if(error) throw new Error('Erro ao enviar nova imagem: ' + error.message)
+
+  const { data } = supabase.storage.from('os-files').getPublicUrl(path)
+  return { url:data.publicUrl, name:file.name, path }
+}
+
 export default function Quotes(){
   const [rows,setRows]=useState<any[]>([])
   const [company,setCompany]=useState<any>(null)
@@ -138,13 +172,16 @@ export default function Quotes(){
 
   function openEditQuote(r:any){
     const items = normalizeItems(r).map((item:any)=>({
+      service_price_id:item.service_price_id || null,
       service_name:item.service_name || 'Serviço',
       pricing_type:item.pricing_type || 'm2',
       quantity:String(item.quantity || 1),
       width_cm:String(item.width_cm || 0),
       height_cm:String(item.height_cm || 0),
       estimated_price:String(item.estimated_price || 0),
-      observation:item.observation || ''
+      observation:item.observation || '',
+      price_m2:item.price_m2 || 0,
+      unit_price:item.unit_price || item.price_m2 || 0
     }))
     setEditQuote({
       id:r.id,
@@ -156,9 +193,14 @@ export default function Quotes(){
       project_name:r.project_name || '',
       description:r.description || '',
       status:r.status || 'Novo',
-      items
+      project_image_url:r.project_image_url || '',
+      project_image_name:r.project_image_name || '',
+      project_image_path:r.project_image_path || '',
+      remove_project_image:false,
+      new_project_image_file:null,
+      items:items.length ? items : [blankEditItem()]
     })
-    setMsg('Editando orçamento. Altere os campos e clique em salvar alteração.')
+    setMsg('Editando orçamento. Agora você pode trocar/remover imagem e remover serviços do orçamento.')
     window.scrollTo({top:0,behavior:'smooth'})
   }
 
@@ -171,49 +213,117 @@ export default function Quotes(){
     })
   }
 
+  function addEditQuoteItem(){
+    // Permite adicionar um novo serviço durante a edição do orçamento.
+    setEditQuote((prev:any)=>prev ? {...prev,items:[...(prev.items || []),blankEditItem()]} : prev)
+  }
+
+  function removeEditQuoteItem(index:number){
+    // Remove um serviço específico do orçamento editado, mantendo pelo menos um item na tela.
+    setEditQuote((prev:any)=>{
+      if(!prev) return prev
+      const items = [...(prev.items || [])]
+      if(items.length <= 1){
+        return {...prev,items:[blankEditItem()]}
+      }
+      items.splice(index,1)
+      return {...prev,items}
+    })
+  }
+
   async function saveEditedQuote(e:React.FormEvent){
     e.preventDefault()
     if(!editQuote) return
     setLoading(true)
-    const items = (editQuote.items || []).map((item:any)=>{
-      const width = numberInput(item.width_cm)
-      const height = numberInput(item.height_cm)
-      return {
-        service_name:item.service_name || 'Serviço',
-        pricing_type:item.pricing_type || 'm2',
-        quantity:Math.max(numberInput(item.quantity) || 1,1),
-        width_cm:width,
-        height_cm:height,
-        width_m:width/100,
-        height_m:height/100,
-        area_m2:(width/100)*(height/100),
-        estimated_price:numberInput(item.estimated_price),
-        observation:item.observation || null
+    setMsg('')
+
+    try{
+      const items = (editQuote.items || []).map((item:any)=>{
+        const width = numberInput(item.width_cm)
+        const height = numberInput(item.height_cm)
+        const quantity = Math.max(numberInput(item.quantity) || 1,1)
+        const area = (width/100)*(height/100)
+        const estimated = numberInput(item.estimated_price)
+
+        return {
+          service_price_id:item.service_price_id || null,
+          service_name:item.service_name || 'Serviço',
+          pricing_type:item.pricing_type || 'm2',
+          quantity,
+          width_cm:width,
+          height_cm:height,
+          width_m:width/100,
+          height_m:height/100,
+          area_m2:area,
+          price_m2:numberInput(item.price_m2),
+          unit_price:numberInput(item.unit_price || item.price_m2),
+          estimated_price:estimated,
+          observation:item.observation || null
+        }
+      }).filter((item:any)=>item.service_name || item.estimated_price > 0)
+
+      if(items.length === 0) throw new Error('Mantenha pelo menos um serviço no orçamento.')
+
+      let projectImageUrl = editQuote.project_image_url || null
+      let projectImageName = editQuote.project_image_name || null
+      let projectImagePath = editQuote.project_image_path || null
+
+      if(editQuote.new_project_image_file){
+        // Se houver imagem nova, envia para o Supabase e substitui a imagem anterior.
+        const uploaded = await uploadEditedProjectImage(editQuote.new_project_image_file, editQuote.quote_number || editQuote.id)
+        if(projectImagePath){
+          await supabase.storage.from('os-files').remove([projectImagePath])
+        }
+        projectImageUrl = uploaded.url
+        projectImageName = uploaded.name
+        projectImagePath = uploaded.path
+      } else if(editQuote.remove_project_image){
+        // Se o usuário marcou para remover, limpa os campos da imagem no orçamento.
+        if(projectImagePath){
+          await supabase.storage.from('os-files').remove([projectImagePath])
+        }
+        projectImageUrl = null
+        projectImageName = null
+        projectImagePath = null
       }
-    })
-    const first = items[0] || {}
-    const total = items.reduce((sum:number,item:any)=>sum+Number(item.estimated_price || 0),0)
-    const { error } = await supabase.from('public_quotes').update({
-      client_name:editQuote.client_name,
-      company:editQuote.company,
-      phone:editQuote.phone,
-      email:editQuote.email,
-      project_name:editQuote.project_name,
-      description:editQuote.description,
-      status:editQuote.status,
-      quote_items:items,
-      service_name:first.service_name || 'Serviço',
-      width_cm:first.width_cm || 0,
-      height_cm:first.height_cm || 0,
-      width_m:first.width_m || 0,
-      height_m:first.height_m || 0,
-      area_m2:items.reduce((sum:number,item:any)=>sum+Number(item.area_m2 || 0),0),
-      estimated_price:total
-    }).eq('id',editQuote.id)
-    if(error) setMsg('Erro ao atualizar orçamento: ' + error.message)
-    else { setMsg('Orçamento atualizado com sucesso.'); setEditQuote(null) }
-    await load()
-    setLoading(false)
+
+      const first = items[0] || {}
+      const total = items.reduce((sum:number,item:any)=>sum+Number(item.estimated_price || 0),0)
+      const { error } = await supabase.from('public_quotes').update({
+        client_name:editQuote.client_name,
+        company:editQuote.company,
+        phone:editQuote.phone,
+        email:editQuote.email,
+        project_name:editQuote.project_name,
+        description:editQuote.description,
+        status:editQuote.status,
+        quote_items:items,
+        service_price_id:first.service_price_id || null,
+        service_name:first.service_name || 'Serviço',
+        pricing_type:first.pricing_type || 'm2',
+        quantity:first.quantity || 1,
+        width_cm:first.width_cm || 0,
+        height_cm:first.height_cm || 0,
+        width_m:first.width_m || 0,
+        height_m:first.height_m || 0,
+        area_m2:items.reduce((sum:number,item:any)=>sum+Number(item.area_m2 || 0),0),
+        price_m2:first.price_m2 || first.unit_price || 0,
+        unit_price:first.unit_price || first.price_m2 || 0,
+        estimated_price:total,
+        project_image_url:projectImageUrl,
+        project_image_name:projectImageName,
+        project_image_path:projectImagePath
+      }).eq('id',editQuote.id)
+
+      if(error) throw new Error('Erro ao atualizar orçamento: ' + error.message)
+      setMsg('Orçamento atualizado com sucesso.')
+      setEditQuote(null)
+      await load()
+    }catch(err:any){
+      setMsg(err.message || 'Erro ao atualizar orçamento.')
+    }finally{
+      setLoading(false)
+    }
   }
 
   async function deleteSelectedQuotes(){
@@ -416,19 +526,76 @@ export default function Quotes(){
             <select className="input" value={editQuote.status} onChange={e=>setEditQuote({...editQuote,status:e.target.value})}><option>Novo</option><option>Em análise</option><option>Convertido</option><option>Recusado</option></select>
             <input className="input" placeholder="Descrição" value={editQuote.description} onChange={e=>setEditQuote({...editQuote,description:e.target.value})}/>
           </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-lg font-black">Imagem do projeto</h3>
+                <p className="text-sm text-zinc-400">Troque a imagem, remova a imagem atual ou mantenha como está.</p>
+              </div>
+              {editQuote.project_image_url && !editQuote.remove_project_image && (
+                <a className="btn-dark" href={editQuote.project_image_url} target="_blank" rel="noreferrer">Ver imagem atual</a>
+              )}
+            </div>
+
+            {editQuote.project_image_url && !editQuote.remove_project_image && (
+              <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center">
+                <img src={editQuote.project_image_url} className="h-24 w-32 rounded-xl object-cover border border-white/10"/>
+                <div className="text-sm text-zinc-300">
+                  <strong>{editQuote.project_image_name || 'Imagem atual cadastrada'}</strong>
+                  <p className="text-zinc-500">Esta imagem será mantida se você não selecionar outra ou não remover.</p>
+                </div>
+              </div>
+            )}
+
+            {editQuote.remove_project_image && (
+              <div className="mb-3 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-red-100">
+                A imagem atual será removida quando você salvar a alteração.
+              </div>
+            )}
+
+            {editQuote.new_project_image_file && (
+              <div className="mb-3 rounded-xl border border-green-500/30 bg-green-950/40 p-3 text-green-100">
+                Nova imagem selecionada: <strong>{editQuote.new_project_image_file.name}</strong>
+              </div>
+            )}
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <input className="input md:col-span-2" type="file" accept="image/*" onChange={e=>setEditQuote({...editQuote,new_project_image_file:e.target.files?.[0] || null,remove_project_image:false})}/>
+              <button type="button" className="btn-red" onClick={()=>setEditQuote({...editQuote,remove_project_image:true,new_project_image_file:null})}>Remover imagem</button>
+              {(editQuote.remove_project_image || editQuote.new_project_image_file) && (
+                <button type="button" className="btn-dark md:col-span-3" onClick={()=>setEditQuote({...editQuote,remove_project_image:false,new_project_image_file:null})}>Cancelar troca/remoção da imagem</button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-xl font-black">Serviços do orçamento</h3>
+              <p className="text-sm text-zinc-400">Remova serviços que não fazem mais parte do orçamento ou adicione novos itens.</p>
+            </div>
+            <button type="button" className="btn-dark" onClick={addEditQuoteItem}>Adicionar serviço</button>
+          </div>
+
           <div className="grid gap-3">
             {(editQuote.items || []).map((item:any,index:number)=>(
-              <div key={index} className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-3 md:grid-cols-6">
-                <input className="input" placeholder="Serviço" value={item.service_name} onChange={e=>updateEditQuoteItem(index,{service_name:e.target.value})}/>
-                <select className="input" value={item.pricing_type || 'm2'} onChange={e=>updateEditQuoteItem(index,{pricing_type:e.target.value})}>
-                  <option value="m2">Por m²</option>
-                  <option value="quantity">Por quantidade</option>
-                </select>
-                <input className="input" placeholder="Quantidade" value={item.quantity || '1'} onChange={e=>updateEditQuoteItem(index,{quantity:e.target.value})}/>
-                <input className="input" placeholder="Largura cm" value={item.width_cm} onChange={e=>updateEditQuoteItem(index,{width_cm:e.target.value})}/>
-                <input className="input" placeholder="Altura cm" value={item.height_cm} onChange={e=>updateEditQuoteItem(index,{height_cm:e.target.value})}/>
-                <input className="input" placeholder="Valor" value={item.estimated_price} onChange={e=>updateEditQuoteItem(index,{estimated_price:e.target.value})}/>
-                <input className="input md:col-span-6" placeholder="Observação" value={item.observation} onChange={e=>updateEditQuoteItem(index,{observation:e.target.value})}/>
+              <div key={index} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <strong className="text-gold">Serviço {index+1}</strong>
+                  <button type="button" className="btn-red" onClick={()=>removeEditQuoteItem(index)}>Remover serviço</button>
+                </div>
+                <div className="grid gap-3 md:grid-cols-6">
+                  <input className="input" placeholder="Serviço" value={item.service_name} onChange={e=>updateEditQuoteItem(index,{service_name:e.target.value})}/>
+                  <select className="input" value={item.pricing_type || 'm2'} onChange={e=>updateEditQuoteItem(index,{pricing_type:e.target.value})}>
+                    <option value="m2">Por m²</option>
+                    <option value="quantity">Por quantidade</option>
+                  </select>
+                  <input className="input" placeholder="Quantidade" value={item.quantity || '1'} onChange={e=>updateEditQuoteItem(index,{quantity:e.target.value})}/>
+                  <input className="input" placeholder="Largura cm" value={item.width_cm} onChange={e=>updateEditQuoteItem(index,{width_cm:e.target.value})}/>
+                  <input className="input" placeholder="Altura cm" value={item.height_cm} onChange={e=>updateEditQuoteItem(index,{height_cm:e.target.value})}/>
+                  <input className="input" placeholder="Valor" value={item.estimated_price} onChange={e=>updateEditQuoteItem(index,{estimated_price:e.target.value})}/>
+                  <input className="input md:col-span-6" placeholder="Observação" value={item.observation} onChange={e=>updateEditQuoteItem(index,{observation:e.target.value})}/>
+                </div>
               </div>
             ))}
           </div>
