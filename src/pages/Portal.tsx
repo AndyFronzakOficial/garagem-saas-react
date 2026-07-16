@@ -42,34 +42,18 @@ export default function Portal() {
   const [theme, setTheme] = useState<"dark" | "light">(
     () => (localStorage.getItem("portal-theme") as "dark" | "light") || "dark",
   );
-  // Os valores começam ocultos. O desbloqueio vale somente durante esta sessão do portal.
-  const [valuesUnlocked, setValuesUnlocked] = useState(
-    () => sessionStorage.getItem("portal-values-unlocked") === "true",
-  );
+  // Os valores começam ocultos e podem ser exibidos ou escondidos pelo botão toggle.
+  const [valuesUnlocked, setValuesUnlocked] = useState(false);
 
-  // Exibe valores apenas depois da validação do PIN de quatro dígitos.
+  // Alterna a visualização dos valores sem solicitar senha.
   function toggleValuesVisibility() {
-    if (valuesUnlocked) {
-      setValuesUnlocked(false);
-      sessionStorage.removeItem("portal-values-unlocked");
-      setMsg("Valores ocultados.");
-      return;
-    }
-
-    const pin = window.prompt("Digite a senha de 4 dígitos para visualizar os valores:");
-    if (pin === null) return;
-
-    if (pin === "9988") {
-      setValuesUnlocked(true);
-      sessionStorage.setItem("portal-values-unlocked", "true");
-      setErrorMsg("");
-      setMsg("Valores desbloqueados para esta sessão.");
-    } else {
-      setErrorMsg("Senha incorreta. Os valores continuam ocultos.");
-    }
+    const nextValue = !valuesUnlocked;
+    setValuesUnlocked(nextValue);
+    setErrorMsg("");
+    setMsg(nextValue ? "Valores exibidos." : "Valores ocultados.");
   }
 
-  // Centraliza a proteção para não deixar nenhum valor financeiro exposto na interface.
+  // Centraliza a exibição dos valores financeiros no portal.
   function protectedMoney(value: any) {
     return valuesUnlocked ? money(brNumber(value)) : "R$ ••••••";
   }
@@ -94,7 +78,6 @@ export default function Portal() {
     setPayables([]);
     setInstallations([]);
     setValuesUnlocked(false);
-    sessionStorage.removeItem("portal-values-unlocked");
     setMsg("");
     setErrorMsg("");
   }
@@ -342,13 +325,6 @@ export default function Portal() {
     }
   }
   function downloadContract(order: any) {
-    // O contrato contém valores; por isso só pode ser baixado após desbloquear o financeiro.
-    if (!valuesUnlocked) {
-      setErrorMsg("Desbloqueie os valores com a senha antes de baixar o contrato.");
-      goTo("portal-top");
-      return;
-    }
-
     const pdf = new jsPDF("p", "mm", "a4");
 
     // Aqui calculamos a entrada mínima obrigatória de 50% para iniciar a produção.
@@ -479,56 +455,58 @@ export default function Portal() {
       }
       const num = await nextOSNumber();
       const uploaded = await uploadToDrive(num);
-      const { error } = await supabase
-        .from("service_orders")
-        .insert({
-          os_number: num,
-          client_id: client.id,
-          service: f.service || service.name,
-          service_price_id: service.id,
-          service_type: service.name,
-          width_m: widthM,
-          height_m: heightM,
-          width_cm: brNumber(f.width_cm),
-          height_cm: brNumber(f.height_cm),
-          area_m2: area,
-          price_m2: service.price_m2_partner,
-          estimated_price: total,
-          measures: isQuantityService
-            ? `${quantity} unidade(s)`
-            : `${brNumber(f.width_cm).toFixed(0)}cm x ${brNumber(f.height_cm).toFixed(0)}cm`,
-          finishing: "Sem acabamento",
-          description: f.description || null,
-          quote_items: [
-            {
-              service_price_id: service.id,
-              service_name: f.service || service.name,
-              pricing_type: service.pricing_type || "m2",
-              quantity,
-              width_cm: brNumber(f.width_cm),
-              height_cm: brNumber(f.height_cm),
-              width_m: widthM,
-              height_m: heightM,
-              area_m2: area,
-              price_m2: service.price_m2_partner,
-              unit_price: service.price_m2_partner,
-              estimated_price: total,
-              observation: f.description || null,
-            },
-          ],
-          print_file_url: uploaded.fileUrl,
-          drive_file_id: uploaded.driveFileId,
-          drive_file_name: uploaded.driveFileName,
-          drive_folder_id: uploaded.driveFolderId,
-          source: "Cliente",
-          status: "Orçamento",
-          priority: "Média",
-        });
+      const { error } = await supabase.from("service_orders").insert({
+        os_number: num,
+        client_id: client.id,
+        service: f.service || service.name,
+        service_price_id: service.id,
+        service_type: service.name,
+        width_m: widthM,
+        height_m: heightM,
+        width_cm: brNumber(f.width_cm),
+        height_cm: brNumber(f.height_cm),
+        area_m2: area,
+        price_m2: service.price_m2_partner,
+        estimated_price: total,
+        measures: isQuantityService
+          ? `${quantity} unidade(s)`
+          : `${brNumber(f.width_cm).toFixed(0)}cm x ${brNumber(f.height_cm).toFixed(0)}cm`,
+        finishing: "Sem acabamento",
+        description: f.description || null,
+        quote_items: [
+          {
+            service_price_id: service.id,
+            service_name: f.service || service.name,
+            pricing_type: service.pricing_type || "m2",
+            quantity,
+            width_cm: brNumber(f.width_cm),
+            height_cm: brNumber(f.height_cm),
+            width_m: widthM,
+            height_m: heightM,
+            area_m2: area,
+            price_m2: service.price_m2_partner,
+            unit_price: service.price_m2_partner,
+            estimated_price: total,
+            observation: f.description || null,
+          },
+        ],
+        print_file_url: uploaded.fileUrl,
+        drive_file_id: uploaded.driveFileId,
+        drive_file_name: uploaded.driveFileName,
+        drive_folder_id: uploaded.driveFolderId,
+        source: "Cliente",
+        status: "Orçamento",
+        priority: "Média",
+      });
       if (error) {
         setErrorMsg("Erro ao salvar orçamento: " + error.message);
         return;
       }
-      setMsg(valuesUnlocked ? `Orçamento cadastrado: ${num} - ${money(total)}` : `Orçamento cadastrado: ${num}`);
+      setMsg(
+        valuesUnlocked
+          ? `Orçamento cadastrado: ${num} - ${money(total)}`
+          : `Orçamento cadastrado: ${num}`,
+      );
       setFile(null);
       setF({
         service_price_id: "",
@@ -625,7 +603,7 @@ export default function Portal() {
               Novo orçamento
             </button>
             <button className="btn-dark" onClick={toggleValuesVisibility}>
-              {valuesUnlocked ? "Ocultar valores" : "Desbloquear valores"}
+              {valuesUnlocked ? "Ocultar valores" : "Mostrar valores"}
             </button>
             <button className="btn-dark" onClick={toggleTheme}>
               {theme === "dark" ? "Light" : "Dark"}
@@ -710,7 +688,10 @@ export default function Portal() {
               <option value="">Serviço</option>
               {services.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} - {valuesUnlocked ? `${money(s.price_m2_partner)}/${pricingUnit(s)}` : "valor oculto"}
+                  {s.name} -{" "}
+                  {valuesUnlocked
+                    ? `${money(s.price_m2_partner)}/${pricingUnit(s)}`
+                    : "valor oculto"}
                 </option>
               ))}
             </select>
@@ -822,8 +803,9 @@ export default function Portal() {
                         {o.os_number} · {o.service}
                       </h3>
                       <p className="text-sm muted-text">
-                        Valor: {protectedMoney(pay.total)} · Pago: {protectedMoney(pay.paid)} ·
-                        Falta: {protectedMoney(pay.pending)}
+                        Valor: {protectedMoney(pay.total)} · Pago:{" "}
+                        {protectedMoney(pay.paid)} · Falta:{" "}
+                        {protectedMoney(pay.pending)}
                       </p>
                     </div>
                     <span className="badge info">{o.status}</span>
@@ -1068,8 +1050,8 @@ export default function Portal() {
                     </small>
                   </div>
                   <div className="text-sm muted-text">
-                    Pago {protectedMoney(paid)} de {protectedMoney(total)} · Falta{" "}
-                    {protectedMoney(Math.max(total - paid, 0))}
+                    Pago {protectedMoney(paid)} de {protectedMoney(total)} ·
+                    Falta {protectedMoney(Math.max(total - paid, 0))}
                   </div>
                 </div>
               );
