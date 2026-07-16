@@ -144,12 +144,12 @@ export default function Dashboard(){
     ['Falta receber',s.faltaReceber],
     ['Falta pagar',s.faltaPagar],
     ['Ticket médio',s.ticket]
-   ].map(([n,v])=><article className="metric-card" key={String(n)}><small className="text-zinc-400">{n}</small><h2 className="mt-2 text-2xl font-black text-white">{money(Number(v))}</h2></article>)}
+   ].map(([n,v])=><article className="metric-card" key={String(n)}><small className="text-zinc-400">{n}</small><h2 className="mt-2 text-sm font-black text-white">{money(Number(v))}</h2></article>)}
   </section>
 
   <section className="dashboard-panel my-5">
     <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <div><h2 className="text-2xl font-black">Meta mensal</h2><p className="text-zinc-400">Meta configurada: {money(s.meta)} • Recebido real: {money(s.recebido)}</p></div>
+      <div><h2 className="text-sm font-black">Meta mensal</h2><p className="text-zinc-400">Meta configurada: {money(s.meta)} • Recebido real: {money(s.recebido)}</p></div>
       <strong className="text-gold">{s.percentMeta}% atingido</strong>
     </div>
     <div className="h-8 overflow-hidden rounded-full border border-white/10 bg-black/40">
@@ -160,6 +160,6 @@ export default function Dashboard(){
 
   <section className="my-5 grid gap-4 md:grid-cols-4"><article className="metric-card"><small>Clientes</small><h2 className="text-3xl font-black">{s.clientes}</h2></article><article className="metric-card"><small>Orçamentos/PDV no mês</small><h2 className="text-3xl font-black">{s.quotes}</h2></article><article className="metric-card"><small>Ordens no mês</small><h2 className="text-3xl font-black">{s.orders}</h2></article><article className="metric-card"><small>Agenda no mês</small><h2 className="text-3xl font-black">{s.deliveries}</h2></article></section>
 
-  <section className="grid gap-5 xl:grid-cols-2"><div className="dashboard-panel"><h2 className="mb-4 text-2xl font-black">Top Clientes</h2>{s.topClients.map(([name,value]:any)=><div className="mb-3 flex justify-between rounded-xl border border-white/10 bg-black/30 p-3" key={name}><span>{name}</span><strong>{money(Number(value))}</strong></div>)}{s.topClients.length===0&&<p className="text-zinc-400">Sem dados no mês.</p>}</div><div className="dashboard-panel"><h2 className="mb-4 text-2xl font-black">Top Serviços</h2>{s.topServices.map(([name,count]:any)=><div className="mb-3 flex justify-between rounded-xl border border-white/10 bg-black/30 p-3" key={name}><span>{name}</span><strong>{Number(count)}x</strong></div>)}{s.topServices.length===0&&<p className="text-zinc-400">Sem dados no mês.</p>}</div></section>
+  <section className="grid gap-5 xl:grid-cols-2"><div className="dashboard-panel"><h2 className="mb-4 text-sm font-black">Top Clientes</h2>{s.topClients.map(([name,value]:any)=><div className="mb-3 flex justify-between rounded-xl border border-white/10 bg-black/30 p-3" key={name}><span>{name}</span><strong>{money(Number(value))}</strong></div>)}{s.topClients.length===0&&<p className="text-zinc-400">Sem dados no mês.</p>}</div><div className="dashboard-panel"><h2 className="mb-4 text-sm font-black">Top Serviços</h2>{s.topServices.map(([name,count]:any)=><div className="mb-3 flex justify-between rounded-xl border border-white/10 bg-black/30 p-3" key={name}><span>{name}</span><strong>{Number(count)}x</strong></div>)}{s.topServices.length===0&&<p className="text-zinc-400">Sem dados no mês.</p>}</div></section>
  </div>
 }
