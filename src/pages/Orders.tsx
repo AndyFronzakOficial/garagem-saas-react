@@ -596,6 +596,7 @@ export default function Orders(){
                 <th>OS</th>
                 <th>Cliente</th>
                 <th>Serviço</th>
+                <th>Quantidade</th>
                 <th>Valor</th>
                 <th>Arquivo</th>
                 <th>Responsáveis</th>
@@ -636,7 +637,28 @@ export default function Orders(){
                       </div>
                     )}
                   </td>
+<td className="text-center">
+  {Array.isArray(r.quote_items) && r.quote_items.length > 0 ? (
+    <div className="space-y-1">
+      {r.quote_items.slice(0,3).map((item:any,index:number)=>(
+        <div key={index}>
+          <strong>{item.quantity || 1}</strong>
+          {item.pricing_type === 'quantity'
+            ? ' un'
+            : ' m²'}
+        </div>
+      ))}
 
+      {r.quote_items.length > 3 && (
+        <small className="text-zinc-500">
+          +{r.quote_items.length-3} itens
+        </small>
+      )}
+    </div>
+  ) : (
+    <strong>{r.quantity || 1}</strong>
+  )}
+</td>
                   <td>
                     <strong>{money(r.estimated_price)}</strong>
                   </td>
