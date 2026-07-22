@@ -83,6 +83,9 @@ export default function CustomerHistory(){
   const [msg,setMsg]=useState('')
   const [selected,setSelected]=useState('')
   const [search,setSearch]=useState('')
+  const [dateFrom,setDateFrom]=useState('')
+  const [dateTo,setDateTo]=useState('')
+  const [paymentFilter,setPaymentFilter]=useState<'all'|'open'|'paid'>('all')
   const [signatureOrder,setSignatureOrder]=useState<any>(null)
 
   useEffect(()=>{ load() },[])
@@ -529,7 +532,19 @@ export default function CustomerHistory(){
   const list = clients.filter(c=>[c.name,c.company,c.phone,c.email].join(' ').toLowerCase().includes(search.toLowerCase()))
   const selectedClient = clients.find(c=>c.id===selected) || list[0]
   const clientOrders = useMemo(()=> selectedClient ? orders.filter(o=>o.client_id===selectedClient.id) : [],[orders,selectedClient])
-  const clientReceivables = useMemo(()=> selectedClient ? receivables.filter(r=>r.client_id===selectedClient.id || r.service_orders?.client_id===selectedClient.id) : [],[receivables,selectedClient])
+  const clientReceivables = useMemo(()=>{
+    if(!selectedClient) return []
+    return receivables.filter(r=>{
+      const sameClient = r.client_id===selectedClient.id || r.service_orders?.client_id===selectedClient.id
+      if(!sameClient) return false
+      const date = String(r.due_date || r.created_at || '').slice(0,10)
+      if(dateFrom && date < dateFrom) return false
+      if(dateTo && date > dateTo) return false
+      if(paymentFilter === 'open' && pendingValue(r) <= 0) return false
+      if(paymentFilter === 'paid' && pendingValue(r) > 0) return false
+      return true
+    })
+  },[receivables,selectedClient,dateFrom,dateTo,paymentFilter])
   const openReceivables = useMemo(()=>clientReceivables.filter(r=>pendingValue(r)>0),[clientReceivables])
   const totalPending = openReceivables.reduce((a,r)=>a+pendingValue(r),0)
   const total = clientOrders.reduce((a,b)=>a+Number(b.estimated_price||0),0)
@@ -553,6 +568,14 @@ export default function CustomerHistory(){
       <div>
         {selectedClient ? <>
           <div className="card mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><h2 className="text-2xl font-black text-gold">{selectedClient.name}</h2><p className="text-zinc-400">{selectedClient.company} · {selectedClient.phone} · {selectedClient.email}</p></div><button className="btn-gold" onClick={()=>downloadPendingReport(selectedClient,clientReceivables)}>Baixar relatório de pendências</button></div>
+          <section className="card mb-5">
+            <div className="grid gap-3 md:grid-cols-4">
+              <div><label className="mb-1 block text-xs text-zinc-400">Vencimento inicial</label><input className="input" type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}/></div>
+              <div><label className="mb-1 block text-xs text-zinc-400">Vencimento final</label><input className="input" type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}/></div>
+              <div><label className="mb-1 block text-xs text-zinc-400">Situação financeira</label><select className="input" value={paymentFilter} onChange={e=>setPaymentFilter(e.target.value as 'all'|'open'|'paid')}><option value="all">Todas</option><option value="open">Somente pendentes</option><option value="paid">Somente pagas</option></select></div>
+              <div className="flex items-end"><button className="btn-dark w-full" onClick={()=>{setDateFrom('');setDateTo('');setPaymentFilter('all')}}>Limpar filtros</button></div>
+            </div>
+          </section>
           <section className="mb-5 grid gap-4 md:grid-cols-4">
             <article className="card"><small>Total gasto</small><h2 className="text-2xl font-black">{money(total)}</h2></article>
             <article className="card"><small>Quantidade de pedidos</small><h2 className="text-2xl font-black">{clientOrders.length}</h2></article>
