@@ -79,20 +79,25 @@ export default function CustomerHistory(){
   const [clients,setClients]=useState<any[]>([])
   const [orders,setOrders]=useState<any[]>([])
   const [company,setCompany]=useState<any>(null)
+  const [receivables,setReceivables]=useState<any[]>([])
+  const [msg,setMsg]=useState('')
   const [selected,setSelected]=useState('')
   const [search,setSearch]=useState('')
   const [signatureOrder,setSignatureOrder]=useState<any>(null)
 
   useEffect(()=>{ load() },[])
   async function load(){
-    const [c,o,cfg]=await Promise.all([
+    const [c,o,cfg,financial]=await Promise.all([
       supabase.from('clients').select('*').order('name'),
       supabase.from('service_orders').select('*,clients(*)').order('created_at',{ascending:false}),
-      supabase.from('company_settings').select('*').eq('id',1).maybeSingle()
+      supabase.from('company_settings').select('*').eq('id',1).maybeSingle(),
+      supabase.from('accounts_receivable').select('*,clients(*),service_orders(*)').order('due_date',{ascending:true})
     ])
     setClients(c.data||[])
     setOrders((o.data||[]).filter((x:any)=>!x.is_deleted))
     if(!cfg.error) setCompany(cfg.data)
+    if(financial.error) setMsg('Erro ao carregar pendências: ' + financial.error.message)
+    else setReceivables((financial.data||[]).filter((x:any)=>!x.is_deleted))
   }
 
   function downloadContract(order:any){
@@ -320,9 +325,213 @@ export default function CustomerHistory(){
     pdf.save(`os-${order.os_number || 'ordem'}.pdf`)
   }
 
+
+
+  function financialAmount(v:any){
+    if(typeof v === 'number') return Number.isFinite(v) ? v : 0
+    const raw = String(v ?? '').trim()
+    if(!raw) return 0
+    const normalized = raw.includes(',') ? raw.replace(/\./g,'').replace(',','.') : raw
+    const n = Number(normalized)
+    return Number.isFinite(n) ? n : 0
+  }
+
+  function pendingValue(row:any){
+    if(row.pending_amount !== null && row.pending_amount !== undefined){
+      return Math.max(financialAmount(row.pending_amount),0)
+    }
+    return Math.max(financialAmount(row.amount) - financialAmount(row.paid_amount),0)
+  }
+
+  function isPaid(row:any){
+    return pendingValue(row) <= 0 || ['Recebido','Pago','Paga'].includes(String(row.status || ''))
+  }
+
+  function isOverdue(row:any){
+    const due = String(row.due_date || '').slice(0,10)
+    return !!due && due < new Date().toISOString().slice(0,10) && !isPaid(row)
+  }
+
+  async function markReceivablePaid(row:any){
+    const ok = confirm(`Marcar "${row.title || 'pendência'}" como totalmente pago?`)
+    if(!ok) return
+    const total = financialAmount(row.amount)
+    const {error} = await supabase
+      .from('accounts_receivable')
+      .update({paid_amount:total,pending_amount:0,status:'Recebido'})
+      .eq('id',row.id)
+    if(error){
+      setMsg('Erro ao marcar como pago: ' + error.message)
+      return
+    }
+    setMsg('Pagamento atualizado. O relatório já está sincronizado.')
+    await load()
+  }
+
+  async function downloadPendingReport(client:any, rows:any[]){
+    const openRows = rows.filter(r=>pendingValue(r) > 0)
+    if(openRows.length === 0){
+      setMsg('Este cliente não possui pendências em aberto.')
+      return
+    }
+
+    const pdf = new jsPDF('p','mm','a4')
+    const cfg = company || {}
+    const pageW = 210
+    const margin = 12
+    let y = 0
+
+    async function header(firstPage=false){
+      pdf.setFillColor(18,18,18)
+      pdf.rect(0,0,pageW,28,'F')
+      const logoUrl = cfg.logo_url || '/logo.png'
+      const logo = await imageToDataURL(logoUrl)
+      if(logo){
+        try{ pdf.addImage(logo,'PNG',margin,6,45,15) }catch{}
+      }else{
+        pdf.setTextColor(244,197,66)
+        pdf.setFont('helvetica','bold')
+        pdf.setFontSize(14)
+        pdf.text(cfg.company_name || cfg.name || 'Garagem Comunicação Visual',margin,15)
+      }
+      pdf.setTextColor(255,255,255)
+      pdf.setFont('helvetica','bold')
+      pdf.setFontSize(13)
+      pdf.text('RELATÓRIO DE PENDÊNCIAS',112,12)
+      pdf.setFontSize(8)
+      pdf.setFont('helvetica','normal')
+      pdf.text(`Emitido em ${new Date().toLocaleString('pt-BR')}`,112,20)
+      y = 38
+      if(firstPage){
+        pdf.setTextColor(0,0,0)
+        pdf.setFont('helvetica','bold')
+        pdf.setFontSize(11)
+        pdf.text('DADOS DO CLIENTE',margin,y)
+        y += 7
+        pdf.setFont('helvetica','normal')
+        pdf.setFontSize(9)
+        pdf.text(`Cliente: ${client.name || '-'}`,margin,y)
+        pdf.text(`Empresa: ${client.company || '-'}`,108,y)
+        y += 6
+        pdf.text(`Telefone: ${client.phone || '-'}`,margin,y)
+        pdf.text(`E-mail: ${client.email || '-'}`,108,y)
+        y += 10
+      }
+    }
+
+    await header(true)
+    const totalL = openRows.reduce((a,r)=>a+financialAmount(r.amount),0)
+    const totalP = openRows.reduce((a,r)=>a+financialAmount(r.paid_amount),0)
+    const totalPending = openRows.reduce((a,r)=>a+pendingValue(r),0)
+    const overdue = openRows.filter(isOverdue).reduce((a,r)=>a+pendingValue(r),0)
+
+    const cards = [
+      ['Total lançado',money(totalL)],
+      ['Já recebido',money(totalP)],
+      ['Saldo pendente',money(totalPending)],
+      ['Total vencido',money(overdue)]
+    ]
+    cards.forEach(([label,value],i)=>{
+      const x = margin + i*47
+      pdf.setFillColor(i===2 ? 255 : 246,i===2 ? 247 : 246,i===2 ? 220 : 246)
+      pdf.roundedRect(x,y,43,20,2,2,'F')
+      pdf.setTextColor(70,70,70)
+      pdf.setFontSize(7.5)
+      pdf.text(label,x+3,y+6)
+      pdf.setTextColor(0,0,0)
+      pdf.setFont('helvetica','bold')
+      pdf.setFontSize(9)
+      pdf.text(String(value),x+3,y+14)
+      pdf.setFont('helvetica','normal')
+    })
+    y += 29
+
+    function tableHeader(){
+      pdf.setFillColor(35,35,35)
+      pdf.rect(margin,y,186,9,'F')
+      pdf.setTextColor(255,255,255)
+      pdf.setFont('helvetica','bold')
+      pdf.setFontSize(7.5)
+      pdf.text('OS / DESCRIÇÃO',14,y+6)
+      pdf.text('VENCIMENTO',91,y+6)
+      pdf.text('VALOR',119,y+6)
+      pdf.text('RECEBIDO',145,y+6)
+      pdf.text('PENDENTE',174,y+6)
+      y += 9
+    }
+
+    tableHeader()
+    for(const row of openRows){
+      const title = `${row.service_orders?.os_number ? row.service_orders.os_number + ' - ' : ''}${row.title || row.service_orders?.service || 'Conta a receber'}`
+      const lines = pdf.splitTextToSize(title,72)
+      const rowH = Math.max(10,lines.length*4+4)
+      if(y + rowH > 270){
+        pdf.setTextColor(100,100,100)
+        pdf.setFontSize(7)
+        pdf.text(`Página ${pdf.getNumberOfPages()}`,180,290)
+        pdf.addPage()
+        await header(false)
+        tableHeader()
+      }
+      if(isOverdue(row)) pdf.setFillColor(255,235,235)
+      else pdf.setFillColor(250,250,250)
+      pdf.rect(margin,y,186,rowH,'F')
+      pdf.setDrawColor(225,225,225)
+      pdf.line(margin,y+rowH,198,y+rowH)
+      pdf.setTextColor(0,0,0)
+      pdf.setFont('helvetica','normal')
+      pdf.setFontSize(7.3)
+      pdf.text(lines,14,y+5)
+      pdf.text(brDate(row.due_date),91,y+5)
+      pdf.text(money(financialAmount(row.amount)),119,y+5)
+      pdf.text(money(financialAmount(row.paid_amount)),145,y+5)
+      pdf.setFont('helvetica','bold')
+      pdf.text(money(pendingValue(row)),174,y+5)
+      if(isOverdue(row)){
+        pdf.setTextColor(180,0,0)
+        pdf.setFontSize(6.5)
+        pdf.text('VENCIDA',91,y+rowH-2)
+      }
+      y += rowH
+    }
+
+    if(y > 248){ pdf.addPage(); await header(false) }
+    y += 10
+    pdf.setDrawColor(244,197,66)
+    pdf.setLineWidth(1)
+    pdf.line(110,y,198,y)
+    y += 8
+    pdf.setTextColor(0,0,0)
+    pdf.setFont('helvetica','bold')
+    pdf.setFontSize(12)
+    pdf.text('TOTAL DEVIDO',110,y)
+    pdf.text(money(totalPending),198,y,{align:'right'})
+    y += 12
+    pdf.setFont('helvetica','normal')
+    pdf.setFontSize(8)
+    const note = 'Este documento apresenta os valores pendentes registrados no sistema na data de emissão. Pagamentos realizados após esta data poderão não constar neste relatório.'
+    pdf.text(pdf.splitTextToSize(note,186),margin,y)
+
+    const pages = pdf.getNumberOfPages()
+    for(let page=1; page<=pages; page++){
+      pdf.setPage(page)
+      pdf.setFillColor(18,18,18)
+      pdf.rect(0,286,210,11,'F')
+      pdf.setTextColor(255,255,255)
+      pdf.setFontSize(7.5)
+      pdf.text(cfg.pdf_footer || cfg.company_name || cfg.name || 'Garagem Comunicação Visual',margin,293)
+      pdf.text(`Página ${page} de ${pages}`,198,293,{align:'right'})
+    }
+    const safe = String(client.name || client.company || 'cliente').replace(/[^a-zA-Z0-9À-ÿ_-]+/g,'-')
+    pdf.save(`pendencias-${safe}.pdf`)
+  }
+
   const list = clients.filter(c=>[c.name,c.company,c.phone,c.email].join(' ').toLowerCase().includes(search.toLowerCase()))
   const selectedClient = clients.find(c=>c.id===selected) || list[0]
   const clientOrders = useMemo(()=> selectedClient ? orders.filter(o=>o.client_id===selectedClient.id) : [],[orders,selectedClient])
+  const clientReceivables = useMemo(()=> selectedClient ? receivables.filter(r=>r.client_id===selectedClient.id || r.service_orders?.client_id===selectedClient.id) : [],[receivables,selectedClient])
+  const openReceivables = useMemo(()=>clientReceivables.filter(r=>pendingValue(r)>0),[clientReceivables])
+  const totalPending = openReceivables.reduce((a,r)=>a+pendingValue(r),0)
   const total = clientOrders.reduce((a,b)=>a+Number(b.estimated_price||0),0)
   const avg = clientOrders.length ? total / clientOrders.length : 0
   const last = clientOrders[0]
@@ -330,7 +539,8 @@ export default function CustomerHistory(){
 
   return <div>
     <h1 className="text-4xl font-black">Histórico do Cliente</h1>
-    <p className="mb-6 text-zinc-400">Total gasto, pedidos, ticket médio, último pedido, serviços mais comprados e documentos assinados.</p>
+    <p className="mb-6 text-zinc-400">Total gasto, pedidos, pendências, pagamentos, serviços mais comprados e documentos assinados.</p>
+    {msg && <div className="mb-5 rounded-xl border border-gold/30 bg-gold/10 p-4 text-gold">{msg}</div>}
     <section className="grid gap-5 lg:grid-cols-[360px_1fr]">
       <div className="card">
         <input className="input mb-4" placeholder="Buscar cliente..." value={search} onChange={e=>setSearch(e.target.value)}/>
@@ -342,12 +552,24 @@ export default function CustomerHistory(){
       </div>
       <div>
         {selectedClient ? <>
-          <div className="card mb-5"><h2 className="text-2xl font-black text-gold">{selectedClient.name}</h2><p className="text-zinc-400">{selectedClient.company} · {selectedClient.phone} · {selectedClient.email}</p></div>
+          <div className="card mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between"><div><h2 className="text-2xl font-black text-gold">{selectedClient.name}</h2><p className="text-zinc-400">{selectedClient.company} · {selectedClient.phone} · {selectedClient.email}</p></div><button className="btn-gold" onClick={()=>downloadPendingReport(selectedClient,clientReceivables)}>Baixar relatório de pendências</button></div>
           <section className="mb-5 grid gap-4 md:grid-cols-4">
             <article className="card"><small>Total gasto</small><h2 className="text-2xl font-black">{money(total)}</h2></article>
             <article className="card"><small>Quantidade de pedidos</small><h2 className="text-2xl font-black">{clientOrders.length}</h2></article>
             <article className="card"><small>Ticket médio</small><h2 className="text-2xl font-black">{money(avg)}</h2></article>
             <article className="card"><small>Último pedido</small><h2 className="text-xl font-black">{last?.os_number || '-'}</h2><small>{brDate(last?.created_at)}</small></article>
+          </section>
+          <section className="card mb-5">
+            <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div><h3 className="text-xl font-black">Pendências financeiras</h3><p className="text-zinc-400">Sincronizadas com o módulo Financeiro.</p></div>
+              <div className="text-right"><small className="text-zinc-400">Total pendente</small><h3 className="text-2xl font-black text-gold">{money(totalPending)}</h3></div>
+            </div>
+            <div className="table-wrap"><table><thead><tr><th>OS</th><th>Descrição</th><th>Vencimento</th><th>Valor</th><th>Recebido</th><th>Pendente</th><th>Status</th><th>Ação</th></tr></thead><tbody>
+              {clientReceivables.map(r=><tr key={r.id}>
+                <td>{r.service_orders?.os_number || '-'}</td><td>{r.title || r.service_orders?.service || '-'}</td><td>{brDate(r.due_date)}</td><td>{money(financialAmount(r.amount))}</td><td>{money(financialAmount(r.paid_amount))}</td><td><strong>{money(pendingValue(r))}</strong></td><td><span className={`badge ${isPaid(r)?'success':isOverdue(r)?'danger':'warning'}`}>{isPaid(r)?'Recebido':isOverdue(r)?'Vencido':(r.status || 'Aberto')}</span></td><td>{!isPaid(r)?<button className="btn-gold" onClick={()=>markReceivablePaid(r)}>Marcar pago</button>:<span className="text-zinc-400">Quitado</span>}</td>
+              </tr>)}
+              {clientReceivables.length===0&&<tr><td colSpan={8} className="p-6 text-center text-zinc-400">Nenhum lançamento financeiro vinculado a este cliente.</td></tr>}
+            </tbody></table></div>
           </section>
           <section className="grid gap-5 xl:grid-cols-2">
             <div className="card"><h3 className="mb-4 text-xl font-black">Serviços mais comprados</h3>{topServices.map(([name,count]:any)=><div key={name} className="mb-3 flex justify-between rounded-xl bg-black/20 p-3"><span>{name}</span><strong>{count}x</strong></div>)}{topServices.length===0&&<p className="text-zinc-400">Sem serviços.</p>}</div>
