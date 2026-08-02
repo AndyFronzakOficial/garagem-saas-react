@@ -282,3 +282,95 @@ td{ border-top:1px solid var(--line); padding:12px; vertical-align:top; }
   .portal-actions .btn-dark,.portal-actions .btn-red{ flex:1 1 135px; padding:10px 12px; }
   .portal-hero{ align-items:flex-start; flex-direction:column; }
 }
+
+/* V43 — redesign global focado em usabilidade e responsividade */
+:root{
+  --radius-sm:12px; --radius-md:16px; --radius-lg:22px;
+  --content-gap:1rem;
+  --focus-ring:0 0 0 4px color-mix(in srgb,var(--gold) 20%,transparent);
+}
+.theme-light{
+  color-scheme:light;
+  --bg:#f3f5f8; --bg-soft:#f8fafc; --panel:#ffffff; --panel-2:#f8fafc;
+  --text:#344054; --strong:#101828; --muted:#667085; --line:#e4e7ec; --input:#fff;
+  --shadow:0 8px 28px rgba(16,24,40,.06);
+}
+.theme-dark{
+  --bg:#090c10; --bg-soft:#0d1117; --panel:#12171e; --panel-2:#0e1319;
+  --text:#e4e7ec; --strong:#f9fafb; --muted:#98a2b3; --line:rgba(255,255,255,.09); --input:#0d1218;
+  --shadow:0 12px 36px rgba(0,0,0,.24);
+}
+body{font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+button,a,input,select,textarea{touch-action:manipulation}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+.bg-app{background:radial-gradient(circle at 15% -10%,var(--gold-soft),transparent 26%),linear-gradient(180deg,var(--bg),var(--bg-soft)) fixed}
+.topbar{box-shadow:0 1px 0 var(--line);background:color-mix(in srgb,var(--panel) 88%,transparent)}
+.sidebar-shell{box-shadow:8px 0 28px rgba(0,0,0,.08);background:color-mix(in srgb,var(--panel) 97%,transparent)}
+.nav-item{min-height:42px}
+.nav-active{background:linear-gradient(90deg,var(--gold-soft),color-mix(in srgb,var(--gold-soft) 25%,transparent));box-shadow:inset 3px 0 0 var(--gold)}
+.icon-btn,.top-action{gap:7px;border-radius:12px;height:40px;min-height:40px}
+.mobile-page-title{font-size:1rem;font-weight:900;color:var(--strong)}
+
+.card,.hero-card,.dashboard-panel,.metric-card,.client-card,.price-preview{border-radius:var(--radius-lg);box-shadow:var(--shadow)}
+.card{padding:clamp(14px,2vw,22px)}
+.metric-card{min-height:120px}
+.input{min-height:44px;border-radius:13px;padding:11px 13px}
+textarea.input{min-height:110px;resize:vertical}
+select.input{cursor:pointer}
+.btn-gold,.btn-dark,.btn-red{display:inline-flex;min-height:42px;align-items:center;justify-content:center;gap:8px;border-radius:13px;padding:10px 15px;line-height:1.1}
+.btn-gold:active,.btn-dark:active,.btn-red:active{transform:translateY(0) scale(.985)}
+
+/* cabeçalhos de páginas existentes */
+main h1{color:var(--strong);letter-spacing:-.035em;line-height:1.08}
+main h2,main h3{color:var(--strong)}
+main section+section{scroll-margin-top:92px}
+
+/* tabelas: legíveis no desktop e roláveis no celular */
+.table-wrap,.overflow-x-auto{scrollbar-gutter:stable}
+table{border-collapse:separate;border-spacing:0;min-width:760px}
+thead{position:sticky;top:0;z-index:2;background:var(--panel)}
+th{background:color-mix(in srgb,var(--panel-2) 85%,transparent);padding:13px 12px;font-size:11px;letter-spacing:.07em}
+td{padding:13px 12px}
+tbody tr{transition:background .15s ease}
+tbody tr:hover{background:color-mix(in srgb,var(--gold-soft) 28%,transparent)}
+
+/* filtros e formulários */
+form.card,.card form{accent-color:var(--gold)}
+label{color:var(--muted)}
+input[type='checkbox'],input[type='radio']{width:17px;height:17px;accent-color:var(--gold)}
+
+/* mensagens */
+.success,.warning,.danger,.info{font-weight:800}
+
+/* login renovado */
+.login-shell{position:relative;isolation:isolate;overflow:hidden}
+.login-shell:before,.login-shell:after{content:'';position:absolute;border-radius:999px;filter:blur(10px);z-index:-1}
+.login-shell:before{width:420px;height:420px;left:-180px;top:-160px;background:var(--gold-soft)}
+.login-shell:after{width:320px;height:320px;right:-140px;bottom:-120px;background:rgba(59,130,246,.08)}
+.login-card{backdrop-filter:blur(18px)}
+
+@media(max-width:1023px){
+  .sidebar-shell{width:min(86vw,310px)}
+  main{padding-top:84px}
+}
+@media(max-width:767px){
+  :root{--content-gap:.75rem}
+  .topbar{height:64px;padding-inline:10px}
+  .sidebar-shell{top:64px}
+  main{padding-top:78px!important}
+  main h1{font-size:clamp(1.65rem,8vw,2.25rem)!important}
+  .card,.hero-card,.dashboard-panel,.metric-card,.client-card,.price-preview{border-radius:17px}
+  .card{padding:14px}
+  .btn-gold,.btn-dark,.btn-red{min-height:44px}
+  .grid.md\:grid-cols-4,.grid.md\:grid-cols-6{grid-template-columns:1fr!important}
+  .portal-topbar-inner{min-height:64px}
+  .portal-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .portal-actions>*{width:100%}
+}
+@media(max-width:480px){
+  .top-action{width:40px;padding:0}
+  .top-action span{display:none!important}
+  .portal-actions{grid-template-columns:1fr}
+  table{font-size:13px}
+  th,td{padding:10px 9px}
+}
