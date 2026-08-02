@@ -1,0 +1,1 @@
+export default function Simple({title}:{title:string}){ return <div><h1 className="text-4xl font-black">{title}</h1><p className="mt-2 text-zinc-400">Estrutura pronta no Supabase para expandir este módulo.</p></div> }
