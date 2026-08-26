@@ -91,8 +91,8 @@ export default function Dashboard(){
   const metaMensal = amount(goalRow?.goal_amount)
   const metaLocal = typeof window !== 'undefined' ? amount(localStorage.getItem('garagem_monthly_goal')) : 0
   const meta = metaConfig > 0 ? metaConfig : (metaMensal > 0 ? metaMensal : metaLocal)
-  const faltaMeta=Math.max(meta-recebido,0)
-  const percentMeta=meta>0?Math.min(100,Math.round((recebido/meta)*100)):0
+  const faltaMeta=Math.max(meta-faturamento,0)
+  const percentMeta=meta>0?Math.min(100,Math.round((faturamento/meta)*100)):0
 
   // Clientes que mais movimentaram valores em OS no mês.
   const topClients=Object.entries(orders.reduce((acc:any,o:any)=>{
@@ -140,7 +140,7 @@ export default function Dashboard(){
     ['Recebido real',s.recebido],
     ['Despesas previstas',s.despesas],
     ['Pago real',s.pago],
-    ['Saldo real',s.saldo],
+    ['Saldo do período',s.saldo],
     ['Falta receber',s.faltaReceber],
     ['Falta pagar',s.faltaPagar],
     ['Ticket médio',s.ticket]
@@ -149,13 +149,13 @@ export default function Dashboard(){
 
   <section className="dashboard-panel my-5">
     <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <div><h2 className="text-sm font-black">Meta mensal</h2><p className="text-zinc-400">Meta configurada: {money(s.meta)} • Recebido real: {money(s.recebido)}</p></div>
+      <div><h2 className="text-sm font-black">Meta mensal</h2><p className="text-zinc-400">Meta configurada: {money(s.meta)} • Faturamento previsto: {money(s.faturamento)}</p></div>
       <strong className="text-gold">{s.percentMeta}% atingido</strong>
     </div>
     <div className="h-8 overflow-hidden rounded-full border border-white/10 bg-black/40">
       <div className="h-full rounded-full bg-gold transition-all" style={{width:`${s.percentMeta}%`}} />
     </div>
-    <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm text-zinc-300"><span>Recebido real: {money(s.recebido)}</span><span>Falta para meta: {money(s.faltaMeta)}</span></div>
+    <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm text-zinc-300"><span>Faturamento previsto: {money(s.faturamento)}</span><span>Falta para meta: {money(s.faltaMeta)}</span></div>
   </section>
 
   <section className="my-5 grid gap-4 md:grid-cols-4"><article className="metric-card"><small>Clientes</small><h2 className="text-3xl font-black">{s.clientes}</h2></article><article className="metric-card"><small>Orçamentos/PDV no mês</small><h2 className="text-3xl font-black">{s.quotes}</h2></article><article className="metric-card"><small>Ordens no mês</small><h2 className="text-3xl font-black">{s.orders}</h2></article><article className="metric-card"><small>Agenda no mês</small><h2 className="text-3xl font-black">{s.deliveries}</h2></article></section>

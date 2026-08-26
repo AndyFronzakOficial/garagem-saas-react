@@ -69,12 +69,16 @@ export default function Finance(){
   const [period,setPeriod]=useState(currentMonth())
   const [receber,setReceber]=useState<any[]>([])
   const [pagar,setPagar]=useState<any[]>([])
+  const [allReceber,setAllReceber]=useState<any[]>([])
+  const [allPagar,setAllPagar]=useState<any[]>([])
   const [clients,setClients]=useState<any[]>([])
   const [orders,setOrders]=useState<any[]>([])
   const [form,setForm]=useState<any>(emptyForm)
   const [editingEntry,setEditingEntry]=useState<{id:string,type:EntryType}|null>(null)
   const [costEdit,setCostEdit]=useState<Record<string,any>>({})
   const [msg,setMsg]=useState('')
+  const [openingBalance,setOpeningBalance]=useState(0)
+  const [openingDate,setOpeningDate]=useState('')
 
   useEffect(()=>{load()},[period])
 
@@ -91,27 +95,14 @@ export default function Finance(){
     const {start,end}=monthRange(period)
 
     // Carrega todos os dados necessários para contas, clientes, OS, custos e relatório.
-    const [r,p,c,o]=await Promise.all([
-      supabase
-        .from('accounts_receivable')
-        .select('*,clients(*),service_orders(*)')
-        .gte('due_date',start)
-        .lte('due_date',end)
-        .order('due_date',{ascending:true}),
-      supabase
-        .from('accounts_payable')
-        .select('*,clients(*),service_orders(*,clients(*))')
-        .gte('due_date',start)
-        .lte('due_date',end)
-        .order('due_date',{ascending:true}),
-      supabase
-        .from('clients')
-        .select('*')
-        .order('name',{ascending:true}),
-      supabase
-        .from('service_orders')
-        .select('*,clients(*)')
-        .order('created_at',{ascending:false})
+    const [r,p,ra,pa,c,o,cfg]=await Promise.all([
+      supabase.from('accounts_receivable').select('*,clients(*),service_orders(*)').gte('due_date',start).lte('due_date',end).order('due_date',{ascending:true}),
+      supabase.from('accounts_payable').select('*,clients(*),service_orders(*,clients(*))').gte('due_date',start).lte('due_date',end).order('due_date',{ascending:true}),
+      supabase.from('accounts_receivable').select('*,clients(*),service_orders(*)').order('due_date',{ascending:true}),
+      supabase.from('accounts_payable').select('*,clients(*),service_orders(*,clients(*))').order('due_date',{ascending:true}),
+      supabase.from('clients').select('*').order('name',{ascending:true}),
+      supabase.from('service_orders').select('*,clients(*)').order('created_at',{ascending:false}),
+      supabase.from('company_settings').select('cash_opening_balance,cash_opening_date').eq('id',1).maybeSingle()
     ])
 
     if(r.error) setMsg('Erro ao carregar contas a receber: '+r.error.message)
@@ -119,6 +110,10 @@ export default function Finance(){
 
     setReceber((r.data||[]).filter((x:any)=>!x.is_deleted))
     setPagar((p.data||[]).filter((x:any)=>!x.is_deleted))
+    setAllReceber((ra.data||[]).filter((x:any)=>!x.is_deleted))
+    setAllPagar((pa.data||[]).filter((x:any)=>!x.is_deleted))
+    setOpeningBalance(amount(cfg.data?.cash_opening_balance))
+    setOpeningDate(cfg.data?.cash_opening_date || '')
     setClients(c.data||[])
     setOrders((o.data||[]).filter((x:any)=>!x.is_deleted))
   }
@@ -273,7 +268,9 @@ export default function Finance(){
   const saidas=pagar.reduce((a,b)=>a+amount(b.paid_amount),0)
   const aReceber=receber.reduce((a,b)=>a+pendingAmount(b),0)
   const aPagar=pagar.reduce((a,b)=>a+pendingAmount(b),0)
-  const saldo=entradas-saidas
+  const saldoPeriodo=entradas-saidas
+  const saldoAcumulado=openingBalance + allReceber.reduce((a,b)=>a+amount(b.paid_amount),0) - allPagar.reduce((a,b)=>a+amount(b.paid_amount),0)
+  const saldoAtual=openingDate ? openingBalance + allReceber.filter(r=>String(r.due_date||'')>=openingDate).reduce((a,b)=>a+amount(b.paid_amount),0) - allPagar.filter(r=>String(r.due_date||'')>=openingDate).reduce((a,b)=>a+amount(b.paid_amount),0) : saldoAcumulado
   const vencidasReceber=receber.filter(r=>pendingAmount(r)>0 && r.due_date < today())
   const vencidasPagar=pagar.filter(r=>pendingAmount(r)>0 && r.due_date < today())
 
@@ -287,7 +284,7 @@ export default function Finance(){
     ].sort((a,b)=>String(a.due_date).localeCompare(String(b.due_date)))
   },[receber,pagar])
 
-  // Fluxo diário baseado em valores pagos/recebidos, mantendo o saldo real correto.
+  // Fluxo diário baseado em valores pagos/recebidos, mantendo o saldo do período correto.
   const dailyFlow=useMemo(()=>{
     const map:Record<string,{in:number,out:number}>={}
     receber.forEach(r=>{map[r.due_date]=map[r.due_date]||{in:0,out:0};map[r.due_date].in+=amount(r.paid_amount)})
@@ -378,7 +375,7 @@ export default function Finance(){
     ;[
       `Total a receber: ${money(totalReceber)} | Recebido: ${money(entradas)} | Falta receber: ${money(aReceber)}`,
       `Total a pagar: ${money(totalPagar)} | Pago: ${money(saidas)} | Falta pagar: ${money(aPagar)}`,
-      `Saldo real: ${money(saldo)} | Vencidas: ${vencidasReceber.length + vencidasPagar.length} | Para vencer em 7 dias: ${contasParaVencer.length}`
+      `Saldo do período: ${money(saldoPeriodo)} | Saldo calculado: ${money(saldoAtual)} | Vencidas: ${vencidasReceber.length + vencidasPagar.length} | Para vencer em 7 dias: ${contasParaVencer.length}`
     ].forEach(line=>{ pdf.text(line,10,y); y+=6 })
 
     y+=4
@@ -447,7 +444,7 @@ export default function Finance(){
       <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-4xl font-black">Financeiro</h1>
-          <p className="text-zinc-400">Entradas, saídas, saldo real, contas, OS vinculadas e relatórios.</p>
+          <p className="text-zinc-400">Entradas, saídas, saldo do período, saldo calculado, contas, OS vinculadas e relatórios.</p>
         </div>
         <div className="flex flex-col gap-2 md:flex-row">
           <input type="month" className="input max-w-xs" value={period} onChange={e=>setPeriod(e.target.value)}/>
@@ -460,7 +457,8 @@ export default function Finance(){
       <section className="mb-5 grid gap-4 md:grid-cols-4 xl:grid-cols-7">
         <article className="card"><small>Entradas recebidas</small><h2 className="text-2xl font-black">{money(entradas)}</h2></article>
         <article className="card"><small>Saídas pagas</small><h2 className="text-2xl font-black">{money(saidas)}</h2></article>
-        <article className="card"><small>Saldo real</small><h2 className="text-2xl font-black">{money(saldo)}</h2></article>
+        <article className="card"><small>Saldo do período</small><h2 className="text-2xl font-black">{money(saldoPeriodo)}</h2><span className="text-xs text-zinc-500">Entradas pagas menos saídas pagas no mês</span></article>
+        <article className="card"><small>Saldo calculado</small><h2 className="text-2xl font-black">{money(saldoAtual)}</h2><span className="text-xs text-zinc-500">Saldo inicial + movimentos pagos</span></article>
         <article className="card"><small>Total a receber</small><h2 className="text-2xl font-black">{money(totalReceber)}</h2></article>
         <article className="card"><small>Falta receber</small><h2 className="text-2xl font-black">{money(aReceber)}</h2></article>
         <article className="card"><small>Falta pagar</small><h2 className="text-2xl font-black">{money(aPagar)}</h2></article>
@@ -545,7 +543,7 @@ export default function Finance(){
       ) : tab==='fluxo' ? (
         <div className="card table-wrap">
           <table>
-            <thead><tr><th>Dia</th><th>Entradas recebidas</th><th>Saídas pagas</th><th>Saldo real</th></tr></thead>
+            <thead><tr><th>Dia</th><th>Entradas recebidas</th><th>Saídas pagas</th><th>Saldo do período</th></tr></thead>
             <tbody>
               {dailyFlow.map(([day,v])=><tr key={day}><td>{brDate(day)}</td><td>{money(v.in)}</td><td>{money(v.out)}</td><td>{money(v.in-v.out)}</td></tr>)}
               {dailyFlow.length===0 && <tr><td colSpan={4} className="text-zinc-400">Nenhum lançamento.</td></tr>}
