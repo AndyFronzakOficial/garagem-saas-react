@@ -16,6 +16,9 @@ const sideLinks = [
   {to:'/relatorios', label:'Relatórios', roles:['Administrador']},
   {to:'/estoque', label:'Estoque', roles:['Administrador','Produção','Funcionário']},
   {to:'/entregas', label:'Entrega/Instalação', roles:['Administrador','Produção','Funcionário']},
+  {to:'/pdv-varejo', label:'PDV Varejo', roles:['Administrador','Vendas','Financeiro']},
+  {to:'/estoque-varejo', label:'Estoque Varejo', roles:['Administrador','Vendas','Financeiro']},
+  {to:'/financeiro-varejo', label:'Financeiro Varejo', roles:['Administrador','Financeiro']},
 
 
 ]
@@ -36,6 +39,9 @@ const pageTitles: Record<string,string> = {
   '/usuarios':'Usuários',
   '/backup':'Backup',
   '/configuracoes':'Configurações',
+  '/pdv-varejo':'PDV Varejo',
+  '/estoque-varejo':'Estoque Varejo',
+  '/financeiro-varejo':'Financeiro Varejo',
 }
 
 export default function Layout() {

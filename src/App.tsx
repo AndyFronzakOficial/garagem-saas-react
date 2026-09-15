@@ -19,6 +19,9 @@ import Users from './pages/Users'
 import Settings from './pages/Settings'
 import CustomerHistory from './pages/CustomerHistory'
 import Backup from './pages/Backup'
+import RetailPOS from './pages/RetailPOS'
+import RetailInventory from './pages/RetailInventory'
+import RetailFinance from './pages/RetailFinance'
 import AdminOnly from './components/AdminOnly'
 
 export default function App() {
@@ -46,6 +49,9 @@ export default function App() {
           <Route path="/entregas" element={<Deliveries />} />
           <Route path="/kanban" element={<Kanban />} />
           <Route path="/historico-clientes" element={<CustomerHistory />} />
+          <Route path="/pdv-varejo" element={<RetailPOS />} />
+          <Route path="/estoque-varejo" element={<RetailInventory />} />
+          <Route path="/financeiro-varejo" element={<RetailFinance />} />
         </Route>
       </Route>
     </Routes>

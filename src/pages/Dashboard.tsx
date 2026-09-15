@@ -29,13 +29,13 @@ function paidReal(row:any,finalStatuses:string[]){
 
 export default function Dashboard(){
  const [period,setPeriod]=useState(currentMonth())
- const [data,setData]=useState<any>({receber:[],pagar:[],clientes:[],quotes:[],orders:[],deliveries:[],settings:null,goals:[]})
+ const [data,setData]=useState<any>({receber:[],pagar:[],clientes:[],quotes:[],orders:[],deliveries:[],settings:null,goals:[],retailSales:[]})
 
  useEffect(()=>{load()},[])
 
  async function load(){
   // O dashboard busca os módulos principais e calcula tudo em memória conforme o mês escolhido.
-  const [r,p,c,q,o,d,cfg,goals]=await Promise.all([
+  const [r,p,c,q,o,d,cfg,goals,sales]=await Promise.all([
    supabase.from('accounts_receivable').select('*,clients(*)'),
    supabase.from('accounts_payable').select('*,clients(*),service_orders(*,clients(*))'),
    supabase.from('clients').select('*'),
@@ -43,7 +43,8 @@ export default function Dashboard(){
    supabase.from('service_orders').select('*,clients(*)'),
    supabase.from('installations').select('*'),
    supabase.from('company_settings').select('*').eq('id',1).maybeSingle(),
-   supabase.from('monthly_goals').select('*')
+   supabase.from('monthly_goals').select('*'),
+   supabase.from('retail_sales').select('total,profit,created_at').eq('status','finalizada')
   ])
 
   setData({
@@ -54,7 +55,8 @@ export default function Dashboard(){
    orders:(o.data||[]).filter((x:any)=>!x.is_deleted),
    deliveries:d.data||[],
    settings:cfg.data||null,
-   goals:goals.data||[]
+   goals:goals.data||[],
+   retailSales:(sales.data||[])
   })
  }
 
@@ -67,13 +69,14 @@ export default function Dashboard(){
   const quotes=data.quotes.filter((x:any)=>createdInMonth(x,start,end))
   const orders=data.orders.filter((x:any)=>createdInMonth(x,start,end))
   const deliveries=data.deliveries.filter((x:any)=>createdInMonth(x,start,end))
+  const retailSales=data.retailSales.filter((x:any)=>createdInMonth(x,start,end))
 
   // Faturamento/despesas previstos representam o total lançado no mês.
-  const faturamento=receber.reduce((a:number,b:any)=>a+amount(b.amount),0)
+  const faturamento=receber.reduce((a:number,b:any)=>a+amount(b.amount),0) + retailSales.reduce((a:number,b:any)=>a+amount(b.total),0)
   const despesas=pagar.reduce((a:number,b:any)=>a+amount(b.amount),0)
 
   // Recebido/pago representam dinheiro que realmente entrou ou saiu do caixa.
-  const recebido=receber.reduce((a:number,b:any)=>a+paidReal(b,['Recebido']),0)
+  const recebido=receber.reduce((a:number,b:any)=>a+paidReal(b,['Recebido']),0) + retailSales.reduce((a:number,b:any)=>a+amount(b.total),0)
   const pago=pagar.reduce((a:number,b:any)=>a+paidReal(b,['Paga']),0)
 
   // Pendências mostram o que ainda falta receber e pagar.
@@ -119,7 +122,7 @@ export default function Dashboard(){
    lucro:faturamento-despesas-cost,
    saldo:recebido-pago,
    clientes:data.clientes.length,
-   quotes:quotes.length,
+   quotes:quotes.length + retailSales.length,
    orders:orders.length,
    deliveries:deliveries.length,
    ticket:orders.length?orders.reduce((a:number,b:any)=>a+amount(b.estimated_price),0)/orders.length:0,

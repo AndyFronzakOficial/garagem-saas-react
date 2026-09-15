@@ -67,6 +67,7 @@ export default function Reports(){
   const [clients,setClients]=useState<any[]>([])
   const [installations,setInstallations]=useState<any[]>([])
   const [msg,setMsg]=useState('')
+  const [retailSales,setRetailSales]=useState<any[]>([])
 
   useEffect(()=>{load()},[period])
 
@@ -74,12 +75,13 @@ export default function Reports(){
     const {start,end}=monthRange(period)
 
     // Relatórios usam dados integrados: financeiro, clientes, OS e agenda.
-    const [r,p,o,c,i]=await Promise.all([
+    const [r,p,o,c,i,rv]=await Promise.all([
       supabase.from('accounts_receivable').select('*,clients(*),service_orders(*)').gte('due_date',start).lte('due_date',end).order('due_date',{ascending:true}),
       supabase.from('accounts_payable').select('*,clients(*),service_orders(*,clients(*))').gte('due_date',start).lte('due_date',end).order('due_date',{ascending:true}),
       supabase.from('service_orders').select('*,clients(*)').order('created_at',{ascending:false}),
       supabase.from('clients').select('*').order('name',{ascending:true}),
-      supabase.from('installations').select('*,service_orders(os_number,service,client_id,clients(name,company))').gte('installation_date',start).lte('installation_date',end).order('installation_date',{ascending:true})
+      supabase.from('installations').select('*,service_orders(os_number,service,client_id,clients(name,company))').gte('installation_date',start).lte('installation_date',end).order('installation_date',{ascending:true}),
+      supabase.from('retail_sales').select('*,retail_sale_items(*)').eq('status','finalizada').gte('created_at',`${start}T00:00:00`).lte('created_at',`${end}T23:59:59`).order('created_at',{ascending:true})
     ])
 
     if(r.error) setMsg('Erro ao carregar contas a receber: '+r.error.message)
@@ -91,19 +93,22 @@ export default function Reports(){
     setOrders((o.data||[]).filter((x:any)=>!x.is_deleted && createdInRange(x,start,end)))
     setClients(c.data||[])
     setInstallations(i.data||[])
+    setRetailSales(rv.data||[])
   }
 
   const report=useMemo(()=>{
     const totalReceber=receber.reduce((a,b)=>a+amount(b.amount),0)
     const totalPagar=pagar.reduce((a,b)=>a+amount(b.amount),0)
-    const recebido=receber.reduce((a,b)=>a+paidReal(b,['Recebido']),0)
+    const retailTotal=retailSales.reduce((a,b)=>a+amount(b.total),0)
+    const retailProfit=retailSales.reduce((a,b)=>a+amount(b.profit),0)
+    const recebido=receber.reduce((a,b)=>a+paidReal(b,['Recebido']),0) + retailTotal
     const pago=pagar.reduce((a,b)=>a+paidReal(b,['Paga']),0)
     const faltaReceber=receber.reduce((a,b)=>a+pending(b,['Recebido']),0)
     const faltaPagar=pagar.reduce((a,b)=>a+pending(b,['Paga']),0)
     const vendasOS=orders.reduce((a,b)=>a+osRevenue(b),0)
     const custosOS=orders.reduce((a,b)=>a+osCost(b),0)
     const lucroReal=recebido - pago - custosOS
-    const lucroPrevisto=vendasOS - custosOS
+    const lucroPrevisto=vendasOS - custosOS + retailProfit
     const saldoCaixa=recebido-pago
 
     // Agrupa saldos por cliente para saber quem falta pagar e quanto já pagou.
@@ -143,8 +148,8 @@ export default function Reports(){
       ...pagar.filter(r=>pending(r,['Paga'])>0 && r.due_date>=hoje && r.due_date<=end).map(r=>({...r,tipo:'Pagar'}))
     ].sort((a,b)=>String(a.due_date).localeCompare(String(b.due_date)))
 
-    return {totalReceber,totalPagar,recebido,pago,faltaReceber,faltaPagar,vendasOS,custosOS,lucroReal,lucroPrevisto,saldoCaixa,topClientes,clientesPendentes,lucroPorOS,vencidas,paraVencer}
-  },[receber,pagar,orders])
+    return {totalReceber,totalPagar,recebido,pago,faltaReceber,faltaPagar,vendasOS,custosOS,lucroReal,lucroPrevisto,saldoCaixa,retailTotal,retailProfit,topClientes,clientesPendentes,lucroPorOS,vencidas,paraVencer}
+  },[receber,pagar,orders,retailSales])
 
   function exportPdf(){
     const pdf=new jsPDF('p','mm','a4')
@@ -170,8 +175,8 @@ export default function Reports(){
     ;[
       `Entradas previstas: ${money(report.totalReceber)} | Recebido real: ${money(report.recebido)} | Falta receber: ${money(report.faltaReceber)}`,
       `Saídas previstas: ${money(report.totalPagar)} | Pago real: ${money(report.pago)} | Falta pagar: ${money(report.faltaPagar)}`,
-      `Saldo de caixa: ${money(report.saldoCaixa)} | Vendas em OS: ${money(report.vendasOS)} | Custos em OS: ${money(report.custosOS)}`,
-      `Lucro previsto por OS: ${money(report.lucroPrevisto)} | Lucro real aproximado: ${money(report.lucroReal)}`
+      `Saldo de caixa: ${money(report.saldoCaixa)} | Vendas em OS: ${money(report.vendasOS)} | Vendas varejo: ${money(report.retailTotal)} | Custos em OS: ${money(report.custosOS)}`,
+      `Lucro previsto por OS: ${money(report.lucroPrevisto)} | Lucro varejo: ${money(report.retailProfit)} | Lucro real aproximado: ${money(report.lucroReal)}`
     ].forEach(line=>{ pdf.text(line,10,y); y+=6 })
 
     y=ensurePage(pdf,y+4,20)
@@ -201,6 +206,13 @@ export default function Reports(){
     y=row(pdf,y,['Data','Hora','Tipo','OS','Cliente','Status'],[24,18,26,26,58,32])
     installations.forEach(i=>{ y=ensurePage(pdf,y,9); y=row(pdf,y,[formatDateBR(i.installation_date),String(i.installation_time||'-').slice(0,5),i.delivery_type || 'Instalação',i.service_orders?.os_number || '-',i.service_orders?.clients?.company || i.service_orders?.clients?.name || '-',i.status],[24,18,26,26,58,32]) })
     if(!installations.length){ pdf.text('Nenhum agendamento no período.',10,y); y+=7 }
+
+    y=ensurePage(pdf,y+4,20)
+    pdf.setFontSize(12); pdf.text('6. Vendas do PDV Varejo',10,y); y+=7
+    pdf.setFontSize(8)
+    y=row(pdf,y,['Data/Hora','Venda','Pagamento','Total'],[55,45,45,45])
+    retailSales.forEach(r=>{ y=ensurePage(pdf,y,9); y=row(pdf,y,[new Date(r.created_at).toLocaleString('pt-BR'),r.sale_number||'-',r.payment_method||'-',money(amount(r.total))],[55,45,45,45]) })
+    if(!retailSales.length){ pdf.text('Nenhuma venda varejo no período.',10,y); y+=7 }
 
     // Rodapé com páginas.
     const pages=pdf.getNumberOfPages()
