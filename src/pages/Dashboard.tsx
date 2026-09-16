@@ -57,7 +57,7 @@ function MonthlyResultChart({data}:{data:{month:string,result:number}[]}){
        <h2 className="text-lg font-black">Resultado por mês</h2>
        <p className="text-sm text-zinc-400">Resultado financeiro de cada mês do ano, considerando entradas, saídas e custos das operações.</p>
      </div>
-     <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">Ano: {periodYear(data)}</span>
+     <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">Ano: {periodYear(data[0]?.month || '')}</span>
    </div>
    <div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-2 md:p-4">
      <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label="Gráfico de linha do resultado financeiro de cada mês do ano">
