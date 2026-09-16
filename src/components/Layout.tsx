@@ -49,6 +49,8 @@ export default function Layout() {
   const location = useLocation()
   const { profile } = useProfile()
   const role = profile?.role || ''
+  const userEmail = String(profile?.email || '').toLowerCase().trim()
+  const isOrcamentoPdv = userEmail === 'orcamento@garagem.com'
   const [menuOpen,setMenuOpen] = useState(()=>localStorage.getItem('garagem_menu_open') !== 'false')
   const [settingsOpen,setSettingsOpen] = useState(false)
   const [theme,setTheme] = useState(()=>localStorage.getItem('garagem_theme') || 'dark')
@@ -136,7 +138,7 @@ export default function Layout() {
       <aside className={`sidebar-shell fixed bottom-0 left-0 top-16 z-30 w-72 border-r p-4 transition-transform duration-300 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
        
         <nav className="flex h-[calc(100vh-8.5rem)] flex-col gap-1 overflow-y-auto pr-1">
-          {sideLinks.filter(l=>l.roles.includes(role)).map(({to,label}) => (
+          {sideLinks.filter(l=>l.roles.includes(role) || (isOrcamentoPdv && l.to === '/pdv-varejo')).map(({to,label}) => (
             <NavLink key={to} to={to} onClick={()=> window.innerWidth < 1024 && setMenuOpen(false)} className={({ isActive }) => `nav-item rounded-xl px-3 py-3 text-sm font-semibold transition ${isActive ? 'nav-active' : 'nav-idle'}`}>
               {label}
             </NavLink>
