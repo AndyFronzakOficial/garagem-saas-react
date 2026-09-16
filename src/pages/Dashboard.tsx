@@ -27,6 +27,59 @@ function paidReal(row:any,finalStatuses:string[]){
   return finalStatuses.includes(row.status) ? amount(row.amount) : 0
 }
 
+function MonthlyResultChart({data}:{data:{month:string,result:number}[]}){
+ const width=1000
+ const height=320
+ const left=58
+ const right=22
+ const top=24
+ const bottom=54
+ const plotW=width-left-right
+ const plotH=height-top-bottom
+ const values=data.map(x=>x.result)
+ const rawMin=Math.min(0,...values)
+ const rawMax=Math.max(0,...values)
+ const range=Math.max(rawMax-rawMin,1)
+ const pad=range*0.12
+ const minY=rawMin-pad
+ const maxY=rawMax+pad
+ const x=(i:number)=>left+(i/(data.length-1))*plotW
+ const y=(v:number)=>top+((maxY-v)/(maxY-minY))*plotH
+ const points=data.map((item,i)=>`${x(i)},${y(item.result)}`).join(' ')
+ const zeroY=y(0)
+ const monthNames=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+ const format=(v:number)=>money(v)
+ const ticks=[maxY,(maxY+minY)/2,minY]
+
+ return <div className="dashboard-panel">
+   <div className="mb-5 flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+     <div>
+       <h2 className="text-lg font-black">Resultado por mês</h2>
+       <p className="text-sm text-zinc-400">Resultado financeiro de cada mês do ano, considerando entradas, saídas e custos das operações.</p>
+     </div>
+     <span className="text-xs font-bold uppercase tracking-wider text-zinc-500">Ano: {periodYear(data)}</span>
+   </div>
+   <div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-2 md:p-4">
+     <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label="Gráfico de linha do resultado financeiro de cada mês do ano">
+       {ticks.map((tick,i)=><g key={i}>
+         <line x1={left} x2={width-right} y1={y(tick)} y2={y(tick)} stroke="currentColor" className="text-white/10" strokeWidth="1" strokeDasharray="4 5" />
+         <text x={left-10} y={y(tick)+4} textAnchor="end" className="fill-zinc-500" fontSize="11">{format(tick)}</text>
+       </g>)}
+       <line x1={left} x2={width-right} y1={zeroY} y2={zeroY} stroke="currentColor" className="text-white/20" strokeWidth="1" />
+       <polyline fill="none" stroke="currentColor" className="text-gold" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" points={points} />
+       {data.map((item,i)=><g key={item.month}>
+         <circle cx={x(i)} cy={y(item.result)} r="6" fill="currentColor" className="text-gold">
+           <title>{`${monthNames[i]}: ${format(item.result)}`}</title>
+         </circle>
+         <text x={x(i)} y={height-22} textAnchor="middle" className="fill-zinc-400" fontSize="11">{monthNames[i]}</text>
+       </g>)}
+     </svg>
+   </div>
+ </div>
+}
+
+function periodYear(month:string){ return month.slice(0,4) }
+
 export default function Dashboard(){
  const [period,setPeriod]=useState(currentMonth())
  const [data,setData]=useState<any>({receber:[],pagar:[],clientes:[],quotes:[],orders:[],deliveries:[],settings:null,goals:[],retailSales:[]})
@@ -112,7 +165,28 @@ export default function Dashboard(){
    return acc
   },{})).sort((a:any,b:any)=>b[1]-a[1]).slice(0,5)
 
+  const year=Number(period.slice(0,4))
+  const monthlyResults=Array.from({length:12},(_,monthIndex)=>{
+   const month=String(monthIndex+1).padStart(2,'0')
+   const monthStart=`${year}-${month}-01`
+   const nextMonth=monthIndex===11?`${year+1}-01-01`:`${year}-${String(monthIndex+2).padStart(2,'0')}-01`
+   const inMonth=(dateValue:any)=>{
+    const date=String(dateValue||'').slice(0,10)
+    return date>=monthStart && date<nextMonth
+   }
+   const monthReceber=data.receber.filter((x:any)=>inMonth(x.due_date))
+   const monthPagar=data.pagar.filter((x:any)=>inMonth(x.due_date))
+   const monthOrders=data.orders.filter((x:any)=>inMonth(x.created_at))
+   const monthRetail=data.retailSales.filter((x:any)=>inMonth(x.created_at))
+   const monthReceived=monthReceber.reduce((a:number,b:any)=>a+paidReal(b,['Recebido']),0)+monthRetail.reduce((a:number,b:any)=>a+amount(b.total),0)
+   const monthPaid=monthPagar.reduce((a:number,b:any)=>a+paidReal(b,['Paga']),0)
+   const monthServiceCost=monthOrders.reduce((a:number,o:any)=>a+amount(o.material_cost)+amount(o.installation_cost)+amount(o.designer_cost)+amount(o.other_cost),0)
+   const monthRetailCost=monthRetail.reduce((a:number,b:any)=>a+Math.max(amount(b.total)-amount(b.profit),0),0)
+   return {month:`${year}-${month}`,result:monthReceived-monthPaid-monthServiceCost-monthRetailCost}
+  })
+
   return {
+   monthlyResults,
    faturamento,
    recebido,
    despesas,
@@ -160,6 +234,8 @@ export default function Dashboard(){
     </div>
     <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm text-zinc-300"><span>Faturamento previsto: {money(s.faturamento)}</span><span>Falta para meta: {money(s.faltaMeta)}</span></div>
   </section>
+
+  <MonthlyResultChart data={s.monthlyResults}/>
 
   <section className="my-5 grid gap-4 md:grid-cols-4"><article className="metric-card"><small>Clientes</small><h2 className="text-3xl font-black">{s.clientes}</h2></article><article className="metric-card"><small>Orçamentos/PDV no mês</small><h2 className="text-3xl font-black">{s.quotes}</h2></article><article className="metric-card"><small>Ordens no mês</small><h2 className="text-3xl font-black">{s.orders}</h2></article><article className="metric-card"><small>Agenda no mês</small><h2 className="text-3xl font-black">{s.deliveries}</h2></article></section>
 
