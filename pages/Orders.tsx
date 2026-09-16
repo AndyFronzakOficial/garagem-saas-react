@@ -110,6 +110,14 @@ function itemDetails(item:any){
 function numberInput(v:any){ return Number(String(v ?? '').replace(',','.')) || 0 }
 
 export default function Orders(){
+  const [isOrcamentoUser,setIsOrcamentoUser] = useState(false)
+
+  useEffect(()=>{
+    supabase.auth.getUser().then(({data})=>{
+      setIsOrcamentoUser((data.user?.email||'').trim().toLowerCase()==='orcamento@garagem.com')
+    })
+  },[])
+
   const [rows,setRows]=useState<any[]>([])
   const [company,setCompany]=useState<any>(null)
   const [loading,setLoading]=useState(false)
@@ -529,24 +537,26 @@ export default function Orders(){
         </form>
       )}
 
-      <section className="mb-5 grid gap-4 md:grid-cols-4">
-        <article className="card">
-          <small className="text-zinc-400">Total de OS</small>
-          <h2 className="text-3xl font-black">{filtered.length}</h2>
-        </article>
-        <article className="card">
-          <small className="text-zinc-400">Em produção</small>
-          <h2 className="text-3xl font-black">{inProduction}</h2>
-        </article>
-        <article className="card">
-          <small className="text-zinc-400">Finalizadas</small>
-          <h2 className="text-3xl font-black">{done}</h2>
-        </article>
-        <article className="card">
-          <small className="text-zinc-400">Valor total</small>
-          <h2 className="text-3xl font-black">{money(totalValue)}</h2>
-        </article>
-      </section>
+      {!isOrcamentoUser && (
+        <section className="mb-5 grid gap-4 md:grid-cols-4">
+          <article className="card">
+            <small className="text-zinc-400">Total de OS</small>
+            <h2 className="text-3xl font-black">{filtered.length}</h2>
+          </article>
+          <article className="card">
+            <small className="text-zinc-400">Em produção</small>
+            <h2 className="text-3xl font-black">{inProduction}</h2>
+          </article>
+          <article className="card">
+            <small className="text-zinc-400">Finalizadas</small>
+            <h2 className="text-3xl font-black">{done}</h2>
+          </article>
+          <article className="card">
+            <small className="text-zinc-400">Valor total</small>
+            <h2 className="text-3xl font-black">{money(totalValue)}</h2>
+          </article>
+        </section>
+      )}
 
       <section className="card mb-5 grid gap-3 md:grid-cols-6">
         <input
